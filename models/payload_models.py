@@ -48,7 +48,6 @@ class PIISensitivity(str, Enum):
 class LLMProvider(str, Enum):
     OPENAI = "openai"
     GEMINI = "gemini"
-    ANTHROPIC = "anthropic"
 
 
 class VulnerabilityType(str, Enum):
