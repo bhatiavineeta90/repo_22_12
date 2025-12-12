@@ -47,6 +47,7 @@ class PIISensitivity(str, Enum):
 
 class LLMProvider(str, Enum):
     OPENAI = "openai"
+    AZURE_OPENAI = "azure_openai"
     GEMINI = "gemini"
 
 

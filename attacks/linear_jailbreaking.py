@@ -5,7 +5,13 @@ import json
 import re
 
 # Add project root to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
+
+# Add local deepteam path BEFORE any deepteam imports to use local copy instead of installed package
+local_deepteam_path = os.path.join(project_root, "deepteam")
+sys.path.insert(0, local_deepteam_path)
+
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from hashlib import sha1
@@ -85,80 +91,41 @@ def append_csv(data):
 
 
 
+
 # --------------------------- Agent Calling Function ---------------------------
 
-# Lazy-loaded Gemini model for agent calls
-_agent_gemini_model = None
+# # Lazy-loaded Gemini model for agent calls (COMMENTED OUT - using HTTP endpoint instead)
+# _agent_gemini_model = None
 
-def get_agent_gemini_model():
-    """Get or create the Gemini model for agent calls (lazy initialization)."""
-    global _agent_gemini_model
-    if _agent_gemini_model is None:
-        api_key = os.getenv("GEMINI_API_KEY")
-        if api_key:
-            api_key = api_key.strip()
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY not found in environment.")
-        
-        genai.configure(api_key=api_key)
-        
-        model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash")
-        if model_name:
-            model_name = model_name.strip()
-        
-        # Configure safety settings to be less restrictive for red team testing
-        safety_settings = [
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-        ]
-        
-        _agent_gemini_model = genai.GenerativeModel(
-            model_name=model_name,
-            safety_settings=safety_settings
-        )
-    return _agent_gemini_model
-
-
-def call_agent_app(
-    prompt: str,
-    timeout_secs: int = 10,
-    session_id: Optional[str] = None,
-) -> Dict[str, str]:
-    """Call Gemini model as the agent endpoint."""
-    
-    if session_id is None:
-        session_id = "GEMINI-" + sha1(prompt.encode("utf-8")).hexdigest()[:12]
-
-    try:
-        model = get_agent_gemini_model()
-        
-        # Generate response from Gemini
-        response = model.generate_content(prompt)
-        
-        # Extract text from response
-        output_text = ""
-        try:
-            if response.candidates and len(response.candidates) > 0:
-                candidate = response.candidates[0]
-                if candidate.content and candidate.content.parts:
-                    output_text = candidate.content.parts[0].text
-            elif hasattr(response, 'text'):
-                output_text = response.text
-        except Exception:
-            output_text = str(response) if response else ""
-
-        return {
-            "response": output_text,
-            "session_id": session_id,
-        }
-
-    except Exception as e:
-        return {
-            "response": f"ERROR: {e}",
-            "session_id": session_id,
-        }
+# def get_agent_gemini_model():
+#     """Get or create the Gemini model for agent calls (lazy initialization)."""
+#     global _agent_gemini_model
+#     if _agent_gemini_model is None:
+#         api_key = os.getenv("GEMINI_API_KEY")
+#         if api_key:
+#             api_key = api_key.strip()
+#         if not api_key:
+#             raise ValueError("GEMINI_API_KEY not found in environment.")
+#         
+#         genai.configure(api_key=api_key)
+#         
+#         model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash")
+#         if model_name:
+#             model_name = model_name.strip()
+#         
+#         # Configure safety settings to be less restrictive for red team testing
+#         safety_settings = [
+#             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+#             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+#             {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+#             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+#         ]
+#         
+#         _agent_gemini_model = genai.GenerativeModel(
+#             model_name=model_name,
+#             safety_settings=safety_settings
+#         )
+#     return _agent_gemini_model
 
 
 # def call_agent_app(
@@ -166,23 +133,63 @@ def call_agent_app(
 #     timeout_secs: int = 10,
 #     session_id: Optional[str] = None,
 # ) -> Dict[str, str]:
-#     """Call your LLM application endpoint"""
+#     """Call Gemini model as the agent endpoint."""
+#     
 #     if session_id is None:
-#         session_id = "JAILBREAK-" + sha1(prompt.encode("utf-8")).hexdigest()[:12]
-    
-#     url = "http://127.0.0.1:8000/aa-api/v1/utility/get_query"
-#     payload = {"user_input": prompt, "session_id": session_id}
-    
+#         session_id = "GEMINI-" + sha1(prompt.encode("utf-8")).hexdigest()[:12]
+#
 #     try:
-#         r = requests.post(url, json=payload, timeout=timeout_secs)
-#         r.raise_for_status()
-#         data = r.json()
+#         model = get_agent_gemini_model()
+#         
+#         # Generate response from Gemini
+#         response = model.generate_content(prompt)
+#         
+#         # Extract text from response
+#         output_text = ""
+#         try:
+#             if response.candidates and len(response.candidates) > 0:
+#                 candidate = response.candidates[0]
+#                 if candidate.content and candidate.content.parts:
+#                     output_text = candidate.content.parts[0].text
+#             elif hasattr(response, 'text'):
+#                 output_text = response.text
+#         except Exception:
+#             output_text = str(response) if response else ""
+#
 #         return {
-#             "response": data.get("response", ""),
-#             "session_id": data.get("session_id", session_id),
+#             "response": output_text,
+#             "session_id": session_id,
 #         }
+#
 #     except Exception as e:
-#         return {"response": f"ERROR: {e}", "session_id": session_id}
+#         return {
+#             "response": f"ERROR: {e}",
+#             "session_id": session_id,
+#         }
+
+
+def call_agent_app(
+    prompt: str,
+    timeout_secs: int = 10,
+    session_id: Optional[str] = None,
+) -> Dict[str, str]:
+    """Call your LLM application endpoint"""
+    if session_id is None:
+        session_id = "JAILBREAK-" + sha1(prompt.encode("utf-8")).hexdigest()[:12]
+    
+    url = "http://127.0.0.1:8000/aa-api/v1/utility/get_query"
+    payload = {"user_input": prompt, "session_id": session_id}
+    
+    try:
+        r = requests.post(url, json=payload, timeout=timeout_secs)
+        r.raise_for_status()
+        data = r.json()
+        return {
+            "response": data.get("response", ""),
+            "session_id": data.get("session_id", session_id),
+        }
+    except Exception as e:
+        return {"response": f"ERROR: {e}", "session_id": session_id}
 
 
 # --------------------------- Core helpers (robust + reusable) ---------------------------
@@ -346,9 +353,13 @@ def normalize_suggestions(s: Any) -> Optional[str]:
 
 # --------------------------- Single-step functions (clear boundaries) ---------------------------
 
-def init_attack(turns: int) -> LinearJailbreaking:
+def init_attack(turns: int, model=None) -> LinearJailbreaking:
     attack = LinearJailbreaking(turns=turns)
-    attack.simulator_model = GeminiModel(model_name="gemini-2.5-flash")
+    # Use provided model or default to GeminiModel
+    if model is not None:
+        attack.simulator_model = model
+    else:
+        attack.simulator_model = GeminiModel(model_name="gemini-2.5-flash")
     return attack
 
 
@@ -453,7 +464,7 @@ class LinearJailbreakingRunner:
     name = "linear_jailbreaking"
 
     # Standard run (returns whole report at once)
-    def run(self, payload: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any]]]:
+    def run(self, payload: Dict[str, Any], model=None) -> Tuple[str, List[Dict[str, Any]]]:
         initial = payload["initial_attack_prompt"]
         turns = int(payload.get("turns", 8))
         session_id = payload.get("session_id")
@@ -461,7 +472,7 @@ class LinearJailbreakingRunner:
         timeout_secs = int(agent_cfg.get("timeout_secs", 10))
         penalized_phrases = payload.get("penalized_phrases") or ["in the face of impending doom"]
 
-        attack = init_attack(turns)
+        attack = init_attack(turns, model=model)
         conversation_json = init_conversation(initial)
 
         report: List[Dict[str, Any]] = []
@@ -506,7 +517,7 @@ class LinearJailbreakingRunner:
         return run_id, report
 
     # Streaming/iterative run (yields per turn + final summary event)
-    def iter_run(self, payload: Dict[str, Any]):
+    def iter_run(self, payload: Dict[str, Any], model=None):
         initial = payload["initial_attack_prompt"]
         turns = int(payload.get("turns", 8))
         session_id = payload.get("session_id")
@@ -514,7 +525,7 @@ class LinearJailbreakingRunner:
         timeout_secs = int(agent_cfg.get("timeout_secs", 10))
         penalized_phrases = payload.get("penalized_phrases") or ["in the face of impending doom"]
 
-        attack = init_attack(turns)
+        attack = init_attack(turns, model=model)
         conversation_json = init_conversation(initial)
 
         report: List[Dict[str, Any]] = []

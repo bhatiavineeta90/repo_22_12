@@ -351,7 +351,8 @@ class PromptLeakage:
     def __init__(
         self, 
         types: Optional[List[str]] = None,
-        custom_prompts: Optional[List[str]] = None
+        custom_prompts: Optional[List[str]] = None,
+        model=None,
     ):
         """
         Initialize Prompt Leakage vulnerability tester.
@@ -359,11 +360,16 @@ class PromptLeakage:
         Args:
             types: List of prompt leakage types (for categorization)
             custom_prompts: List of custom prompt strings from payload
+            model: LLM model instance (defaults to GeminiModel if not provided)
         """
         self.vulnerability_type = "prompt_leakage"
         self.types = types or ["custom"]
         self.custom_prompts = custom_prompts
-        self.simulator_model = GeminiModel()  # Initialize directly instead of lazy loading
+        # Use provided model or default to GeminiModel
+        if model is not None:
+            self.simulator_model = model
+        else:
+            self.simulator_model = GeminiModel()
     
     def generate_base_prompts(self) -> List[Dict[str, str]]:
         """Generate prompts from payload only (no hardcoded defaults)."""
