@@ -26,6 +26,7 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
         AZURE_OPENAI_API_KEY: Your Azure OpenAI API key
         AZURE_OPENAI_ENDPOINT: Your Azure OpenAI endpoint URL
         AZURE_OPENAI_DEPLOYMENT: Your deployment name
+        AZURE_OPENAI_MODEL_NAME: Model name (optional, defaults to deployment name)
         AZURE_OPENAI_API_VERSION: API version (default: 2024-08-01-preview)
     
     Usage:
@@ -78,7 +79,10 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
             api_key=api_key,
             api_version=api_version
         )
-        self.model_name = self.deployment_name  # For compatibility
+        # Model name can be different from deployment name
+        self.model_name = os.getenv("AZURE_OPENAI_MODEL_NAME", self.deployment_name)
+        if self.model_name:
+            self.model_name = self.model_name.strip()
     
     def load_model(self):
         """Return the client instance."""
