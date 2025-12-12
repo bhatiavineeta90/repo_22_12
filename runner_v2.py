@@ -40,6 +40,14 @@ except ImportError as e:
     LinearJailbreakingRunner = None
 
 try:
+    from attacks.prompt_injection import PromptInjectionRunner
+    PROMPT_INJECTION_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Could not import PromptInjectionRunner: {e}")
+    PROMPT_INJECTION_AVAILABLE = False
+    PromptInjectionRunner = None
+
+try:
     from vulnerabilities.pii_leakage_deep import PIILeakageDeep
     PII_LEAKAGE_DEEP_AVAILABLE = True
 except ImportError as e:
@@ -165,15 +173,23 @@ class RedTeamV2:
         self._init_vulnerability_checkers()
     
     def _init_attack_runners(self):
-        """Initialize attack runners using LinearJailbreakingRunner."""
+        """Initialize attack runners."""
         self.attack_runners = {}
         
-        if not LINEAR_JAILBREAKING_AVAILABLE:
-            raise ImportError("LinearJailbreakingRunner is required but could not be imported. Check attacks/linear_jailbreaking.py")
+        # Register LinearJailbreakingRunner
+        if LINEAR_JAILBREAKING_AVAILABLE:
+            self.attack_runners[AttackType.LINEAR_JAILBREAKING] = LinearJailbreakingRunner()
+        else:
+            print("Warning: LinearJailbreakingRunner not available")
         
-        # Use LinearJailbreakingRunner for all attack types
-        self.attack_runners[AttackType.LINEAR_JAILBREAKING] = LinearJailbreakingRunner()
-        self.attack_runners[AttackType.PROMPT_INJECTION] = LinearJailbreakingRunner()
+        # Register PromptInjectionRunner
+        if PROMPT_INJECTION_AVAILABLE:
+            self.attack_runners[AttackType.PROMPT_INJECTION] = PromptInjectionRunner()
+        else:
+            print("Warning: PromptInjectionRunner not available")
+            # Fallback to LinearJailbreakingRunner if available
+            if LINEAR_JAILBREAKING_AVAILABLE:
+                self.attack_runners[AttackType.PROMPT_INJECTION] = LinearJailbreakingRunner()
     
     def _init_vulnerability_checkers(self):
         """Initialize vulnerability checkers based on available modules."""
