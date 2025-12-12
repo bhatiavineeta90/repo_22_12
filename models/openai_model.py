@@ -82,14 +82,28 @@ class OpenAIModel(DeepEvalBaseLLM):
         return text
     
     def _create_default_schema_instance(self, schema: Type[BaseModel], error_msg: str = ""):
-        """Create a default instance of a Pydantic schema."""
+        """Create a default instance of a Pydantic schema with sensible defaults."""
+        defaults = {}
         schema_name = schema.__name__ if hasattr(schema, '__name__') else str(schema)
         
+        # Handle specific schemas used by deepteam/deepeval
         if schema_name == "ReasonScore":
             return schema(score=None, reason=error_msg or "Failed to generate response")
+        elif schema_name == "NonRefusal":
+            # For NonRefusal schema, must be 'Non-refusal' or 'Refusal'
+            return schema(classification="Non-refusal")
+        elif schema_name == "OnTopic":
+            return schema(on_topic=True)
+        elif schema_name == "Rating":
+            return schema(rating=1, reasoning=error_msg or "Failed to evaluate")
+        elif schema_name == "ImprovementPrompt":
+            return schema(prompt=error_msg or "No improvement available")
+        elif schema_name == "Purpose":
+            return schema(purpose=error_msg if error_msg else "")
+        elif schema_name == "Entities":
+            return schema(entities=[])
         
         # Generic fallback
-        defaults = {}
         for field_name, field_info in schema.model_fields.items():
             annotation = field_info.annotation
             if annotation == str:

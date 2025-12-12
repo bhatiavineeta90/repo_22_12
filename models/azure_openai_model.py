@@ -8,7 +8,7 @@ import os
 import json
 import re
 import time
-from typing import Optional, Type, Union
+from typing import Optional, Type, Union, List, get_origin, get_args
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 from deepeval.models.base_model import DeepEvalBaseLLM
@@ -20,7 +20,7 @@ load_dotenv()
 
 class AzureOpenAIModel(DeepEvalBaseLLM):
     """
-    Azure OpenAI LLM implementation.
+    Azure OpenAI LLM implementation for DeepEval metrics.
     
     Environment variables required:
         AZURE_OPENAI_API_KEY: Your Azure OpenAI API key
@@ -41,15 +41,7 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
         api_key: str = None,
         api_version: str = None
     ):
-        """
-        Initialize the Azure OpenAI model.
-        
-        Args:
-            deployment_name: Azure deployment name
-            azure_endpoint: Azure OpenAI endpoint URL
-            api_key: Azure OpenAI API key
-            api_version: API version
-        """
+        """Initialize the Azure OpenAI model."""
         self.deployment_name = deployment_name or os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
         if self.deployment_name:
             self.deployment_name = self.deployment_name.strip()
@@ -79,6 +71,7 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
             api_key=api_key,
             api_version=api_version
         )
+        
         # Model name can be different from deployment name
         self.model_name = os.getenv("AZURE_OPENAI_MODEL_NAME", self.deployment_name)
         if self.model_name:
@@ -111,29 +104,66 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
         
         return text
     
+    def _get_default_for_type(self, annotation, error_msg: str = ""):
+        """Get a sensible default value for a given type annotation."""
+        if annotation is None:
+            return None
+        
+        origin = get_origin(annotation)
+        args = get_args(annotation)
+        
+        # Handle Optional types
+        if origin is Union:
+            non_none_args = [a for a in args if a is not type(None)]
+            if non_none_args:
+                return self._get_default_for_type(non_none_args[0], error_msg)
+            return None
+        
+        # Handle List types
+        if origin is list or origin is List:
+            return []
+        
+        # Handle basic types
+        if annotation == str:
+            return error_msg if error_msg else ""
+        elif annotation == int:
+            return 0
+        elif annotation == float:
+            return 0.0
+        elif annotation == bool:
+            return False
+        elif annotation == list:
+            return []
+        elif annotation == dict:
+            return {}
+        
+        return None
+    
     def _create_default_schema_instance(self, schema: Type[BaseModel], error_msg: str = ""):
-        """Create a default instance of a Pydantic schema."""
+        """Create a default instance of a Pydantic schema with sensible defaults."""
+        defaults = {}
         schema_name = schema.__name__ if hasattr(schema, '__name__') else str(schema)
         
+        # Handle specific schemas used by deepteam/deepeval
         if schema_name == "ReasonScore":
             return schema(score=None, reason=error_msg or "Failed to generate response")
+        elif schema_name == "NonRefusal":
+            # For NonRefusal schema, must be 'Non-refusal' or 'Refusal'
+            return schema(classification="Non-refusal")
+        elif schema_name == "OnTopic":
+            return schema(on_topic=True)
+        elif schema_name == "Rating":
+            return schema(rating=1, reasoning=error_msg or "Failed to evaluate")
+        elif schema_name == "ImprovementPrompt":
+            return schema(prompt=error_msg or "No improvement available")
+        elif schema_name == "Purpose":
+            return schema(purpose=error_msg if error_msg else "")
+        elif schema_name == "Entities":
+            return schema(entities=[])
         
-        # Generic fallback
-        defaults = {}
+        # Generic fallback: build defaults for all fields
         for field_name, field_info in schema.model_fields.items():
-            annotation = field_info.annotation
-            if annotation == str:
-                defaults[field_name] = error_msg if error_msg else ""
-            elif annotation == float:
-                defaults[field_name] = 0.0
-            elif annotation == int:
-                defaults[field_name] = 0
-            elif annotation == bool:
-                defaults[field_name] = False
-            elif annotation == list or 'list' in str(annotation).lower():
-                defaults[field_name] = []
-            else:
-                defaults[field_name] = None
+            defaults[field_name] = self._get_default_for_type(field_info.annotation, error_msg)
         
         return schema(**defaults)
     
@@ -151,18 +181,32 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
         try:
             if schema is not None:
                 schema_dict = schema.model_json_schema() if hasattr(schema, 'model_json_schema') else {}
+                schema_name = schema.__name__ if hasattr(schema, '__name__') else str(schema)
                 
                 max_retries = 3
                 last_error = None
                 
                 for attempt in range(max_retries):
                     try:
-                        json_prompt = f"""{prompt}
+                        if attempt == 0:
+                            json_prompt = f"""{prompt}
 
-IMPORTANT: Respond with valid JSON only matching this schema:
+IMPORTANT: You MUST respond with valid JSON only. No markdown, no explanation, no text before or after.
+The JSON MUST match this exact schema:
 {json.dumps(schema_dict, indent=2)}
 
-JSON response:"""
+Respond with valid JSON only:"""
+                        else:
+                            json_prompt = f"""{prompt}
+
+CRITICAL REQUIREMENT: Your response MUST be ONLY valid JSON matching the schema below.
+DO NOT include any text, explanation, or markdown formatting.
+START your response with {{ and END with }}.
+
+Schema to match:
+{json.dumps(schema_dict, indent=2)}
+
+Valid JSON response:"""
                         
                         response = self.client.chat.completions.create(
                             model=self.deployment_name,
@@ -173,6 +217,20 @@ JSON response:"""
                         text = response.choices[0].message.content
                         text = self._clean_json_response(text)
                         parsed = json.loads(text)
+                        
+                        # Handle fields that may be None but need defaults
+                        for field_name, field_info in schema.model_fields.items():
+                            if field_name not in parsed or parsed[field_name] is None:
+                                # Check if field has a Literal type (like NonRefusal.classification)
+                                if hasattr(field_info.annotation, '__origin__'):
+                                    origin = get_origin(field_info.annotation)
+                                    if str(origin) == "<class 'typing.Literal'>":
+                                        args = get_args(field_info.annotation)
+                                        if args:
+                                            parsed[field_name] = args[0]  # Use first valid value
+                                else:
+                                    parsed[field_name] = self._get_default_for_type(field_info.annotation, "")
+                        
                         return schema(**parsed)
                     
                     except Exception as e:
@@ -181,6 +239,7 @@ JSON response:"""
                             time.sleep(2 ** attempt)
                             continue
                         
+                        print(f"[AzureOpenAI] JSON parsing failed after {max_retries} attempts: {last_error}")
                         return self._create_default_schema_instance(
                             schema, f"JSON parsing failed: {str(last_error)}"
                         )
@@ -193,6 +252,7 @@ JSON response:"""
                 return response.choices[0].message.content or ""
             
         except Exception as e:
+            print(f"[AzureOpenAI] Error: {e}")
             if schema is not None:
                 return self._create_default_schema_instance(schema, f"Error: {e}")
             return f"[Azure OpenAI ERROR] {e}"
