@@ -153,9 +153,9 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
         elif schema_name == "OnTopic":
             return schema(on_topic=True)
         elif schema_name == "Rating":
-            return schema(rating=1, reasoning=error_msg or "Failed to evaluate")
+            return schema(rating=1)
         elif schema_name == "ImprovementPrompt":
-            return schema(improvement=error_msg or "No improvement available")
+            return schema(improvement=error_msg or "No improvement", prompt=error_msg or "Unable to generate")
         elif schema_name == "Purpose":
             return schema(purpose=error_msg if error_msg else "")
         elif schema_name == "Entities":
