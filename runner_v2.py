@@ -591,9 +591,32 @@ class RedTeamV2:
                             
                             # Print turn summary
                             turn = merged.get("turn", "?")
-                            jb_result = merged.get("jailbreak_result", "?")
+                            
+                            # Determine label and result key based on attack type
+                            attack_type = attack_profile.attack_type.value
+                            if attack_type == "prompt_injection":
+                                label = "PI"
+                                result_key = "prompt_injection_result"
+                            elif attack_type == "linear_jailbreaking":
+                                label = "JB"
+                                result_key = "jailbreak_result"
+                            else:
+                                label = "Attack"
+                                result_key = f"{attack_type}_result"
+                            
+                            # Fallback if specific key missing (though merge_results should handle it)
+                            result_val = merged.get(result_key, reversed(merged.keys()))
+                            
+                            # Actually find the result if generic key lookup failed
+                            if not isinstance(result_val, str):
+                                for k, v in merged.items():
+                                    if k.endswith("_result"):
+                                        result_val = v
+                                        break
+                            
+                            result_val = merged.get(result_key, "?")
                             vuln_detected = "YES" if merged.get("vulnerability_detected") else "NO"
-                            print(f"    Turn {turn}: JB={jb_result}, Vuln={vuln_detected}")
+                            print(f"    Turn {turn}: {label}={result_val}, Vuln={vuln_detected}")
                     else:
                         # No vulnerability check, just add attack result
                         vuln_result = {
