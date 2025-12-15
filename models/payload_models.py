@@ -176,6 +176,12 @@ class AttackProfile(BaseModel):
         default=[],
         description="List of required auth parameters if requires_auth_context is true"
     )
+    attack_sequence: Optional[List[str]] = Field(
+        default=None,
+        description="Scripted multi-turn prompts executed in order within a single session. "
+                    "If provided, turns = len(attack_sequence). Bypasses variant generation. "
+                    "Use for trust-building attack chains (e.g., ['hello', 'auth', 'attack'])."
+    )
 
     class Config:
         json_schema_extra = {

@@ -234,6 +234,10 @@ class RedTeamV2:
         """
         Execute a single attack profile.
         
+        Supports two modes:
+        1. Multi-turn scripted (attack_sequence): Execute prompts in sequence within single session
+        2. Single-turn (initial_attack_prompts): Run exactly 'turns' iterations per prompt
+        
         Args:
             attack_profile: AttackProfile to execute
             
@@ -247,31 +251,65 @@ class RedTeamV2:
             print(f"No runner available for attack type: {attack_type}")
             return str(uuid.uuid4()), []
         
-        # Use LinearJailbreakingRunner
         all_results = []
-        for prompt in attack_profile.initial_attack_prompts:
+        
+        # Check for attack_sequence (multi-turn scripted mode)
+        if attack_profile.attack_sequence:
+            # Multi-turn scripted: execute prompts in sequence within single session
+            print(f"    Mode: Multi-turn scripted (sequence of {len(attack_profile.attack_sequence)} prompts)")
+            
             attack_payload = {
-                "initial_attack_prompt": prompt,
-                "turns": attack_profile.turn_config.turns,
+                "objective": f"Execute scripted attack sequence for {attack_profile.name}",
+                "attack_sequence": attack_profile.attack_sequence,
                 "session_id": f"{attack_profile.name[:10]}-{str(uuid.uuid4())[:6]}",
                 "agent": {"timeout_secs": 15},
             }
+            
             try:
                 run_id, results = runner.run(attack_payload, model=self.model)
-                # Add profile info to results
                 for r in results:
                     r["attack_profile_id"] = attack_profile.id
                     r["attack_profile_name"] = attack_profile.name
+                    r["attack_mode"] = "multi_turn_scripted"
                 all_results.extend(results)
             except Exception as e:
-                print(f"Attack error: {e}")
+                print(f"Attack sequence error: {e}")
                 all_results.append({
                     "error": str(e),
                     "attack_profile_id": attack_profile.id,
                     "attack_profile_name": attack_profile.name,
-                    "attack_prompt": prompt,
+                    "attack_mode": "multi_turn_scripted",
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 })
+        else:
+            # Single-turn mode: run exactly 'turns' iterations per prompt
+            turns = attack_profile.turn_config.turns
+            print(f"    Mode: Single-turn ({turns} turn(s) per prompt)")
+            
+            for prompt in attack_profile.initial_attack_prompts:
+                attack_payload = {
+                    "initial_attack_prompt": prompt,
+                    "turns": turns,
+                    "session_id": f"{attack_profile.name[:10]}-{str(uuid.uuid4())[:6]}",
+                    "agent": {"timeout_secs": 15},
+                }
+                try:
+                    run_id, results = runner.run(attack_payload, model=self.model)
+                    for r in results:
+                        r["attack_profile_id"] = attack_profile.id
+                        r["attack_profile_name"] = attack_profile.name
+                        r["attack_mode"] = "single_turn"
+                    all_results.extend(results)
+                except Exception as e:
+                    print(f"Attack error: {e}")
+                    all_results.append({
+                        "error": str(e),
+                        "attack_profile_id": attack_profile.id,
+                        "attack_profile_name": attack_profile.name,
+                        "attack_prompt": prompt,
+                        "attack_mode": "single_turn",
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    })
         
         return generate_run_id(), all_results
     
