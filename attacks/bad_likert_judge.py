@@ -189,13 +189,38 @@ def normalize_suggestions(s: Any) -> Optional[str]:
 
 def init_attack(num_turns: int, category: str = "bias", enable_refinement: bool = True, 
                 max_backtracks: int = 3, model=None) -> BadLikertJudge:
-    """Initialize the BadLikertJudge attack with configuration."""
-    attack = BadLikertJudge(
-        category=category,
-        num_turns=num_turns,
-        enable_refinement=enable_refinement,
-        max_backtracks=max_backtracks,
-    )
+    """Initialize the BadLikertJudge attack with configuration.
+    
+    Handles both local deepteam (with num_turns) and pip-installed version (without num_turns).
+    """
+    # Try with num_turns first (local lib/deepteam version)
+    try:
+        attack = BadLikertJudge(
+            category=category,
+            num_turns=num_turns,
+            enable_refinement=enable_refinement,
+            max_backtracks=max_backtracks,
+        )
+    except TypeError:
+        # Fallback for pip-installed version without num_turns
+        try:
+            attack = BadLikertJudge(
+                category=category,
+                enable_refinement=enable_refinement,
+                max_backtracks=max_backtracks,
+            )
+            # Set num_turns manually if possible
+            if hasattr(attack, 'num_turns'):
+                attack.num_turns = num_turns
+        except TypeError:
+            # Minimal fallback - just category
+            attack = BadLikertJudge(category=category)
+            if hasattr(attack, 'num_turns'):
+                attack.num_turns = num_turns
+            if hasattr(attack, 'enable_refinement'):
+                attack.enable_refinement = enable_refinement
+            if hasattr(attack, 'max_backtracks'):
+                attack.max_backtracks = max_backtracks
     
     # Use provided model or default to GeminiModel
     if model is not None:
