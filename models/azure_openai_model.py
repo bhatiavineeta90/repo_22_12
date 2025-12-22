@@ -9,13 +9,12 @@ import json
 import re
 import time
 from typing import Optional, Type, Union, List, get_origin, get_args
-from dotenv import load_dotenv
 from openai import AzureOpenAI
 from deepeval.models.base_model import DeepEvalBaseLLM
 from pydantic import BaseModel
 
-# Load environment variables
-load_dotenv()
+# Load configuration
+from config import get as config_get
 
 
 class AzureOpenAIModel(DeepEvalBaseLLM):
@@ -42,29 +41,29 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
         api_version: str = None
     ):
         """Initialize the Azure OpenAI model."""
-        self.deployment_name = deployment_name or os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
+        self.deployment_name = deployment_name or config_get("azure_openai", "deployment", "gpt-4o")
         if self.deployment_name:
             self.deployment_name = self.deployment_name.strip()
         
-        azure_endpoint = azure_endpoint or os.getenv("AZURE_OPENAI_ENDPOINT")
+        azure_endpoint = azure_endpoint or config_get("azure_openai", "endpoint")
         if azure_endpoint:
             azure_endpoint = azure_endpoint.strip()
         if not azure_endpoint:
             raise ValueError(
-                "AZURE_OPENAI_ENDPOINT not found. "
-                "Please set it in your .env file or environment variables."
+                "Azure OpenAI endpoint not found in config/config.ini. "
+                "Please set [azure_openai] endpoint in your config.ini file."
             )
         
-        api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
+        api_key = api_key or config_get("azure_openai", "api_key")
         if api_key:
             api_key = api_key.strip()
         if not api_key:
             raise ValueError(
-                "AZURE_OPENAI_API_KEY not found. "
-                "Please set it in your .env file or environment variables."
+                "Azure OpenAI API key not found in config/config.ini. "
+                "Please set [azure_openai] api_key in your config.ini file."
             )
         
-        api_version = api_version or os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview")
+        api_version = api_version or config_get("azure_openai", "api_version", "2024-08-01-preview")
         
         self.client = AzureOpenAI(
             azure_endpoint=azure_endpoint,
@@ -73,7 +72,7 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
         )
         
         # Model name can be different from deployment name
-        self.model_name = os.getenv("AZURE_OPENAI_MODEL_NAME", self.deployment_name)
+        self.model_name = config_get("azure_openai", "model_name", self.deployment_name)
         if self.model_name:
             self.model_name = self.model_name.strip()
     

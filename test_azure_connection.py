@@ -6,10 +6,9 @@ Run this to diagnose connection issues with Azure OpenAI.
 
 import os
 import sys
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load configuration from config module
+from config import get as config_get
 
 def check_env_variables():
     """Check if all required environment variables are set."""
@@ -18,14 +17,14 @@ def check_env_variables():
     print("=" * 60)
     
     required_vars = {
-        "AZURE_OPENAI_API_KEY": os.getenv("AZURE_OPENAI_API_KEY"),
-        "AZURE_OPENAI_ENDPOINT": os.getenv("AZURE_OPENAI_ENDPOINT"),
-        "AZURE_OPENAI_DEPLOYMENT": os.getenv("AZURE_OPENAI_DEPLOYMENT"),
+        "azure_openai.api_key": config_get("azure_openai", "api_key"),
+        "azure_openai.endpoint": config_get("azure_openai", "endpoint"),
+        "azure_openai.deployment": config_get("azure_openai", "deployment"),
     }
     
     optional_vars = {
-        "AZURE_OPENAI_API_VERSION": os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview"),
-        "AZURE_OPENAI_MODEL_NAME": os.getenv("AZURE_OPENAI_MODEL_NAME"),
+        "azure_openai.api_version": config_get("azure_openai", "api_version", "2024-08-01-preview"),
+        "azure_openai.model_name": config_get("azure_openai", "model_name"),
     }
     
     all_valid = True
@@ -62,10 +61,10 @@ def test_azure_connection():
     try:
         from openai import AzureOpenAI
         
-        endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-        api_key = os.getenv("AZURE_OPENAI_API_KEY")
-        deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
-        api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview")
+        endpoint = config_get("azure_openai", "endpoint")
+        api_key = config_get("azure_openai", "api_key")
+        deployment = config_get("azure_openai", "deployment")
+        api_version = config_get("azure_openai", "api_version", "2024-08-01-preview")
         
         if not all([endpoint, api_key, deployment]):
             print("❌ Missing required environment variables. Cannot test connection.")
@@ -167,12 +166,13 @@ def main():
         print("\n" + "=" * 60)
         print("⚠️  CONFIGURATION ISSUES DETECTED")
         print("=" * 60)
-        print("\nPlease update your .env file with valid Azure OpenAI credentials:")
+        print("\nPlease update your config/config.ini file with valid Azure OpenAI credentials:")
         print("""
-AZURE_OPENAI_API_KEY=<your-actual-api-key>
-AZURE_OPENAI_ENDPOINT=https://<your-resource-name>.openai.azure.com/
-AZURE_OPENAI_DEPLOYMENT=<your-deployment-name>
-AZURE_OPENAI_API_VERSION=2024-08-01-preview
+[azure_openai]
+api_key = <your-actual-api-key>
+endpoint = https://<your-resource-name>.openai.azure.com/
+deployment = <your-deployment-name>
+api_version = 2024-08-01-preview
         """)
         
         proceed = input("\nDo you still want to try connecting? (y/n): ").strip().lower()

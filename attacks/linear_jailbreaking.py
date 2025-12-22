@@ -8,9 +8,9 @@ import re
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-# Add local deepteam path BEFORE any deepteam imports to use local copy instead of installed package
-local_deepteam_path = os.path.join(project_root, "deepteam")
-sys.path.insert(0, local_deepteam_path)
+# Add lib folder to path for deepteam imports (local copy instead of installed package)
+lib_deepteam_path = os.path.join(project_root, "lib")
+sys.path.insert(0, lib_deepteam_path)
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -25,10 +25,7 @@ from deepteam.attacks.multi_turn.linear_jailbreaking.schema import ImprovementPr
 #from config import configuration
 import uuid
 
-# from ..storage import write_run_json, append_csv
-
-from dotenv import load_dotenv
-load_dotenv()  
+# Config is loaded via models.gemini_model which imports config module
 
 from deepteam import red_team
 import google.generativeai as genai
@@ -93,103 +90,8 @@ def append_csv(data):
 
 
 # --------------------------- Agent Calling Function ---------------------------
-
-# # Lazy-loaded Gemini model for agent calls (COMMENTED OUT - using HTTP endpoint instead)
-# _agent_gemini_model = None
-
-# def get_agent_gemini_model():
-#     """Get or create the Gemini model for agent calls (lazy initialization)."""
-#     global _agent_gemini_model
-#     if _agent_gemini_model is None:
-#         api_key = os.getenv("GEMINI_API_KEY")
-#         if api_key:
-#             api_key = api_key.strip()
-#         if not api_key:
-#             raise ValueError("GEMINI_API_KEY not found in environment.")
-#         
-#         genai.configure(api_key=api_key)
-#         
-#         model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash")
-#         if model_name:
-#             model_name = model_name.strip()
-#         
-#         # Configure safety settings to be less restrictive for red team testing
-#         safety_settings = [
-#             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-#             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-#             {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-#             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-#         ]
-#         
-#         _agent_gemini_model = genai.GenerativeModel(
-#             model_name=model_name,
-#             safety_settings=safety_settings
-#         )
-#     return _agent_gemini_model
-
-
-# def call_agent_app(
-#     prompt: str,
-#     timeout_secs: int = 10,
-#     session_id: Optional[str] = None,
-# ) -> Dict[str, str]:
-#     """Call Gemini model as the agent endpoint."""
-#     
-#     if session_id is None:
-#         session_id = "GEMINI-" + sha1(prompt.encode("utf-8")).hexdigest()[:12]
-#
-#     try:
-#         model = get_agent_gemini_model()
-#         
-#         # Generate response from Gemini
-#         response = model.generate_content(prompt)
-#         
-#         # Extract text from response
-#         output_text = ""
-#         try:
-#             if response.candidates and len(response.candidates) > 0:
-#                 candidate = response.candidates[0]
-#                 if candidate.content and candidate.content.parts:
-#                     output_text = candidate.content.parts[0].text
-#             elif hasattr(response, 'text'):
-#                 output_text = response.text
-#         except Exception:
-#             output_text = str(response) if response else ""
-#
-#         return {
-#             "response": output_text,
-#             "session_id": session_id,
-#         }
-#
-#     except Exception as e:
-#         return {
-#             "response": f"ERROR: {e}",
-#             "session_id": session_id,
-#         }
-
-
-def call_agent_app(
-    prompt: str,
-    timeout_secs: int = 10,
-    session_id: Optional[str] = None,
-) -> Dict[str, str]:
-    """Call your LLM application endpoint"""
-    if session_id is None:
-        session_id = "JAILBREAK-" + sha1(prompt.encode("utf-8")).hexdigest()[:12]
-    
-    url = "http://127.0.0.1:8000/aa-api/v1/utility/get_query"
-    payload = {"user_input": prompt, "session_id": session_id}
-    
-    try:
-        r = requests.post(url, json=payload, timeout=timeout_secs)
-        r.raise_for_status()
-        data = r.json()
-        return {
-            "response": data.get("response", ""),
-            "session_id": data.get("session_id", session_id),
-        }
-    except Exception as e:
-        return {"response": f"ERROR: {e}", "session_id": session_id}
+# Using centralized agent client - update AGENT_BASE_URL in agent_client.py or via env vars
+from attacks.agent_client import call_agent_app
 
 
 # --------------------------- Core helpers (robust + reusable) ---------------------------

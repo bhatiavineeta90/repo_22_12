@@ -10,13 +10,12 @@ import json
 import re
 import time
 from typing import Optional, Type, Union, List, get_origin, get_args
-from dotenv import load_dotenv
 import google.generativeai as genai
 from deepeval.models.base_model import DeepEvalBaseLLM
 from pydantic import BaseModel
 
-# Load environment variables
-load_dotenv()
+# Load configuration
+from config import get as config_get
 
 
 class GeminiModel(DeepEvalBaseLLM):
@@ -47,19 +46,19 @@ class GeminiModel(DeepEvalBaseLLM):
                 - "gemini-1.5-pro" (more capable)
                 If not provided, reads from GEMINI_MODEL_NAME env variable.
         """
-        # Use env variable as default if model_name not provided
-        self.model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash")
+        # Use config.ini as default if model_name not provided
+        self.model_name = config_get("gemini", "model_name", "gemini-2.0-flash")
         if self.model_name:
             self.model_name = self.model_name.strip()
         
-        # Configure with API key from environment
-        api_key = os.getenv("GEMINI_API_KEY")
+        # Configure with API key from config
+        api_key = config_get("gemini", "api_key")
         if api_key:
             api_key = api_key.strip()
         if not api_key:
             raise ValueError(
-                "GEMINI_API_KEY not found in environment. "
-                "Please set it in your .env file or environment variables."
+                "Gemini API key not found in config/config.ini. "
+                "Please set [gemini] api_key in your config.ini file."
             )
         
         genai.configure(api_key=api_key)

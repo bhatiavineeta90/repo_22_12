@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+deep_env/
+venv/
+ENV/
+
+# Config with secrets (use config.ini.example as template)
+config/config.ini
+.env
+.env.backup
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Results and logs
+results/
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# DeepEval
+.deepeval/

@@ -10,11 +10,11 @@ import sys
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Add deepteam to path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'deepteam'))
+# Add lib folder to path for deepteam imports
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 
-from dotenv import load_dotenv
-load_dotenv()
+# Load configuration from config module
+import config
 
 from models.gemini_model import GeminiModel
 from deepeval.metrics import PIILeakageMetric

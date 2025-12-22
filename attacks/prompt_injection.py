@@ -153,30 +153,8 @@ def _parse_json_first(s: Optional[str]) -> Optional[Any]:
         return None
 
 
-def call_agent_app(
-    prompt: str,
-    timeout_secs: int = 10,
-    session_id: Optional[str] = None,
-    base_url: str = "http://127.0.0.1:8000",
-    endpoint_path: str = "/aa-api/v1/utility/get_query",
-) -> Dict[str, str]:
-    """Call the agent application."""
-    if session_id is None:
-        session_id = "PI-" + sha1(prompt.encode("utf-8")).hexdigest()[:12]
-
-    url = f"{base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
-    payload = {"user_input": prompt, "session_id": session_id}
-
-    try:
-        r = requests.post(url, json=payload, timeout=timeout_secs)
-        r.raise_for_status()
-        data = r.json()
-        return {
-            "response": data.get("response", ""),
-            "session_id": data.get("session_id", session_id),
-        }
-    except Exception as e:
-        return {"response": f"ERROR: {e}", "session_id": session_id}
+# Using centralized agent client - update AGENT_BASE_URL in agent_client.py or via env vars
+from attacks.agent_client import call_agent_app, AGENT_BASE_URL, AGENT_ENDPOINT_PATH
 
 
 class PromptInjectionRunner:

@@ -9,13 +9,12 @@ import json
 import re
 import time
 from typing import Optional, Type, Union
-from dotenv import load_dotenv
 from openai import OpenAI
 from deepeval.models.base_model import DeepEvalBaseLLM
 from pydantic import BaseModel
 
-# Load environment variables
-load_dotenv()
+# Load configuration
+from config import get as config_get
 
 
 class OpenAIModel(DeepEvalBaseLLM):
@@ -39,17 +38,17 @@ class OpenAIModel(DeepEvalBaseLLM):
             model_name: The OpenAI model to use (e.g., "gpt-4o", "gpt-4-turbo")
             api_key: Optional API key (defaults to OPENAI_API_KEY env var)
         """
-        self.model_name = model_name or os.getenv("OPENAI_MODEL_NAME", "gpt-4o")
+        self.model_name = model_name or config_get("openai", "model_name", "gpt-4o")
         if self.model_name:
             self.model_name = self.model_name.strip()
         
-        api_key = api_key or os.getenv("OPENAI_API_KEY")
+        api_key = api_key or config_get("openai", "api_key")
         if api_key:
             api_key = api_key.strip()
         if not api_key:
             raise ValueError(
-                "OPENAI_API_KEY not found. "
-                "Please set it in your .env file or environment variables."
+                "OpenAI API key not found in config/config.ini. "
+                "Please set [openai] api_key in your config.ini file."
             )
         
         self.client = OpenAI(api_key=api_key)

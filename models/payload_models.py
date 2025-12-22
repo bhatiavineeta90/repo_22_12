@@ -31,6 +31,7 @@ class AttackType(str, Enum):
     PROMPT_INJECTION = "prompt_injection"
     CRESCENDO = "crescendo"
     GRAY_BOX = "gray_box"
+    BAD_LIKERT_JUDGE = "bad_likert_judge"
 
 
 class TurnMode(str, Enum):

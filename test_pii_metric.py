@@ -9,8 +9,8 @@ import sys
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from dotenv import load_dotenv
-load_dotenv()
+# Load configuration from config module (this also sets up lib path)
+import config
 
 from models.gemini_model import GeminiModel
 from deepteam.metrics.pii.pii import PIIMetric

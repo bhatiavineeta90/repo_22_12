@@ -1,0 +1,25 @@
+# ============================================
+# Configuration Template
+# ============================================
+# Copy this file to config.ini and fill in your actual values.
+# DO NOT commit config.ini with real API keys to version control!
+
+[gemini]
+api_key = YOUR_GEMINI_API_KEY_HERE
+model_name = gemini-2.5-flash
+
+[openai]
+api_key = YOUR_OPENAI_API_KEY_HERE
+model_name = gpt-4o
+
+[azure_openai]
+api_key = YOUR_AZURE_OPENAI_API_KEY_HERE
+endpoint = https://your-resource.openai.azure.com/
+deployment = gpt-4o
+model_name = gpt-4o
+api_version = 2024-08-01-preview
+
+[agent]
+base_url = http://127.0.0.1:8000
+endpoint_path = /aa-api/v1/utility/get_query
+timeout_secs = 10

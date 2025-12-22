@@ -21,8 +21,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from dotenv import load_dotenv
-load_dotenv()
+# Load configuration from config module (this also sets up lib path for deepteam)
+import config
 
 from api.routes import router
 

@@ -1,0 +1,35 @@
+name: redteam-env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+    # FastAPI and server
+    - fastapi
+    - uvicorn[standard]
+    - starlette
+    
+    # HTTP and requests
+    - requests
+    - httpx
+    - aiohttp
+    
+    # Data validation
+    - pydantic>=2.0
+    
+    # LLM providers
+    - google-generativeai
+    - openai>=1.0
+    
+    # DeepEval framework
+    - deepeval
+    
+    # Utilities
+    - pyyaml
+    - python-multipart
+    
+    # Testing
+    - pytest
+    - pytest-asyncio

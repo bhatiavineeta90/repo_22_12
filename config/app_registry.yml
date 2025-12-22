@@ -1,0 +1,27 @@
+# ============================================
+# Agent/App Registry
+# ============================================
+# This file contains endpoint configurations for different agents.
+# Set the active agent in config.ini: [agent] active_agent = <agent_name>
+
+agents:
+  utilities_local_agent:
+    base_url: http://127.0.0.1:8000
+    endpoint_path: /aa-api/v1/utility/get_query
+    timeout_secs: 10
+
+  # airline:
+  #   base_url: http://127.0.0.1:5324
+  #   endpoint_path: /aa-api/v1/airline/get_query
+  #   timeout_secs: 10
+
+  # customer_service:
+  #   base_url: http://127.0.0.1:8080
+  #   endpoint_path: /api/chat
+  #   timeout_secs: 15
+
+  # healthcare_bot:
+  #   base_url: http://127.0.0.1:9000
+  #   endpoint_path: /api/v1/query
+  #   timeout_secs: 20
+
