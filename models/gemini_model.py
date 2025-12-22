@@ -3,6 +3,7 @@
 Custom Gemini LLM wrapper for DeepEval integration.
 Follows the DeepEvalBaseLLM pattern for custom model support.
 Supports JSON-constrained output for DeepEval metrics.
+Supports both new google.genai and deprecated google.generativeai SDKs.
 """
 
 import os
@@ -13,10 +14,25 @@ import warnings
 from typing import Optional, Type, Union, List, get_origin, get_args
 from pydantic import BaseModel
 
-# Use google.generativeai SDK (suppress deprecation warning)
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", FutureWarning)
-    import google.generativeai as genai
+# Try to import Google GenAI SDKs - prefer old SDK for compatibility
+USING_NEW_SDK = False
+genai = None
+
+try:
+    # Try old SDK first (more stable API)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        import google.generativeai as old_genai
+    genai = old_genai
+    USING_NEW_SDK = False
+except ImportError:
+    try:
+        # Fall back to new SDK
+        import google.genai as new_genai
+        genai = new_genai
+        USING_NEW_SDK = True
+    except ImportError:
+        raise ImportError("Neither google.generativeai nor google.genai package found. Please install one.")
 
 # Try to import DeepEval base model (may fail with newer versions)
 try:
@@ -41,6 +57,7 @@ class GeminiModel(DeepEvalBaseLLM):
     """
     Custom Gemini LLM implementation for DeepEval metrics and evaluation.
     Supports both plain text and JSON structured outputs.
+    Works with both google.generativeai and google.genai SDKs.
     
     Usage:
         # Initialize the model
@@ -80,8 +97,7 @@ class GeminiModel(DeepEvalBaseLLM):
                 "Please set [gemini] api_key in your config.ini file."
             )
         
-        # Configure the API
-        genai.configure(api_key=api_key)
+        self.api_key = api_key
         
         # Configure safety settings for red team testing (less restrictive)
         self.safety_settings = [
@@ -91,14 +107,50 @@ class GeminiModel(DeepEvalBaseLLM):
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
         ]
         
-        self.model = genai.GenerativeModel(
-            model_name=self.model_name,
-            safety_settings=self.safety_settings
-        )
+        # Initialize model based on SDK version
+        if USING_NEW_SDK:
+            # New google.genai SDK - uses Client pattern
+            self.client = genai.Client(api_key=api_key)
+            self.model = None  # Will use client directly
+        else:
+            # Old google.generativeai SDK - uses configure + GenerativeModel
+            genai.configure(api_key=api_key)
+            self.model = genai.GenerativeModel(
+                model_name=self.model_name,
+                safety_settings=self.safety_settings
+            )
     
     def load_model(self):
         """Return the loaded model instance."""
         return self.model
+    
+    def _generate_content(self, prompt: str, generation_config=None):
+        """
+        Generate content using the appropriate SDK.
+        Handles both old and new SDK APIs.
+        
+        Args:
+            prompt: The input prompt
+            generation_config: Optional generation config (for old SDK)
+            
+        Returns:
+            Response object from the SDK
+        """
+        if USING_NEW_SDK:
+            # New SDK: use client.models.generate_content
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt
+                )
+                return response
+            except Exception as e:
+                raise RuntimeError(f"New SDK generate_content failed: {e}")
+        else:
+            # Old SDK: use model.generate_content
+            if generation_config:
+                return self.model.generate_content(prompt, generation_config=generation_config)
+            return self.model.generate_content(prompt)
     
     def _extract_text_from_response(self, response) -> str:
         """Extract text from Gemini response object."""
@@ -209,8 +261,6 @@ class GeminiModel(DeepEvalBaseLLM):
             If schema is provided: returns Pydantic model instance
         """
         try:
-            model = self.load_model()
-            
             # If schema is provided, use JSON mode with schema and retry logic
             if schema is not None:
                 # Get schema as JSON for prompt
@@ -244,15 +294,15 @@ Schema to match:
 
 Valid JSON response:"""
                         
-                        # Use JSON response mode
-                        generation_config = genai.GenerationConfig(
-                            response_mime_type="application/json"
-                        )
-                        
-                        response = model.generate_content(
-                            json_prompt,
-                            generation_config=generation_config
-                        )
+                        # Use JSON response mode (only for old SDK)
+                        if not USING_NEW_SDK:
+                            generation_config = genai.GenerationConfig(
+                                response_mime_type="application/json"
+                            )
+                            response = self._generate_content(json_prompt, generation_config)
+                        else:
+                            # New SDK - just send the prompt
+                            response = self._generate_content(json_prompt)
                         
                         # Extract and parse JSON
                         text = self._extract_text_from_response(response)
@@ -292,7 +342,7 @@ Valid JSON response:"""
             
             else:
                 # Plain text generation
-                response = model.generate_content(prompt)
+                response = self._generate_content(prompt)
                 return self._extract_text_from_response(response) or "[No response generated]"
             
         except Exception as e:
