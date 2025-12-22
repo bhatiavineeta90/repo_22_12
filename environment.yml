@@ -29,6 +29,7 @@ dependencies:
     # Utilities
     - pyyaml
     - python-multipart
+    - nest_asyncio
     
     # Testing
     - pytest

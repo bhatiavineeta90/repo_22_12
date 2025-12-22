@@ -13,7 +13,13 @@ import re
 from datetime import datetime
 
 # Add project root to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
+
+# Add lib/deepteam folder to path for deepteam imports
+lib_deepteam_path = os.path.join(project_root, "lib", "deepteam")
+sys.path.insert(0, lib_deepteam_path)
+
 from typing import Any, Dict, List, Optional, Tuple
 from hashlib import sha1
 
