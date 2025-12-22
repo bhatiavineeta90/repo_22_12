@@ -8,11 +8,20 @@ Usage:
     python runner_v2.py
 """
 
+import os
+import sys
+
+# CRITICAL: Add lib/deepteam to path FIRST to prioritize local deepteam over pip version
+# This must be done BEFORE any deepteam-related imports
+_project_root = os.path.dirname(os.path.abspath(__file__))
+_lib_deepteam_path = os.path.join(_project_root, "lib", "deepteam")
+if os.path.exists(_lib_deepteam_path) and _lib_deepteam_path not in sys.path:
+    sys.path.insert(0, _lib_deepteam_path)
+
 import json
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
 from datetime import datetime, timezone
-import os
 import csv
 
 # Import the new payload models

@@ -16,7 +16,14 @@ import os
 import sys
 
 # Add project root to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _project_root)
+
+# CRITICAL: Add lib/deepteam to path to prioritize local deepteam over pip version
+# This must be done BEFORE any deepteam-related imports (via routes or runner)
+_lib_deepteam_path = os.path.join(_project_root, "lib", "deepteam")
+if os.path.exists(_lib_deepteam_path) and _lib_deepteam_path not in sys.path:
+    sys.path.insert(0, _lib_deepteam_path)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
