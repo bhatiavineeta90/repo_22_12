@@ -5,8 +5,18 @@ Single-turn and multi-turn prompt injection attacks.
 """
 
 import os
+import sys
 import json
 import re
+
+# Add project root to path for imports
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
+
+# Add lib/deepteam folder to path for deepteam imports (local copy)
+lib_deepteam_path = os.path.join(project_root, "lib", "deepteam")
+sys.path.insert(0, lib_deepteam_path)
+
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor
