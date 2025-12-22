@@ -23,8 +23,8 @@ dependencies:
     - google-generativeai
     - openai>=1.0
     
-    # DeepEval framework
-    - deepeval
+    # DeepEval framework (pinned to avoid breaking changes)
+    - deepeval>=2.0,<3.0
     
     # Utilities
     - pyyaml
