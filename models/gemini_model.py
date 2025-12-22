@@ -13,17 +13,10 @@ import warnings
 from typing import Optional, Type, Union, List, get_origin, get_args
 from pydantic import BaseModel
 
-# Try new google.genai first, fall back to deprecated google.generativeai
-try:
-    import google.genai as genai
-    from google.genai.types import GenerateContentConfig
-    USING_NEW_SDK = True
-except ImportError:
-    # Fall back to deprecated package (suppress warning)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", FutureWarning)
-        import google.generativeai as genai
-    USING_NEW_SDK = False
+# Use google.generativeai SDK (suppress deprecation warning)
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", FutureWarning)
+    import google.generativeai as genai
 
 # Try to import DeepEval base model (may fail with newer versions)
 try:
@@ -87,9 +80,10 @@ class GeminiModel(DeepEvalBaseLLM):
                 "Please set [gemini] api_key in your config.ini file."
             )
         
+        # Configure the API
         genai.configure(api_key=api_key)
         
-        # Configure safety settings to be less restrictive for red team testing
+        # Configure safety settings for red team testing (less restrictive)
         self.safety_settings = [
             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
