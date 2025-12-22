@@ -183,6 +183,11 @@ class AttackProfile(BaseModel):
                     "If provided, turns = len(attack_sequence). Bypasses variant generation. "
                     "Use for trust-building attack chains (e.g., ['hello', 'auth', 'attack'])."
     )
+    category: Optional[str] = Field(
+        default=None,
+        description="[BAD_LIKERT_JUDGE] Attack category for Likert scale scoring. "
+                    "Examples: 'bias', 'pii_leakage', 'harmful_content', 'jailbreak'"
+    )
 
     class Config:
         json_schema_extra = {

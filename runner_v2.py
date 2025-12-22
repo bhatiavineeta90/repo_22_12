@@ -307,6 +307,9 @@ class RedTeamV2:
                     "session_id": f"{attack_profile.name[:10]}-{str(uuid.uuid4())[:6]}",
                     "agent": {"timeout_secs": 15},
                 }
+                # Add category for bad_likert_judge attacks
+                if attack_profile.category:
+                    attack_payload["category"] = attack_profile.category
                 try:
                     run_id, results = runner.run(attack_payload, model=self.model)
                     for r in results:
