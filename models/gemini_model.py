@@ -9,10 +9,36 @@ import os
 import json
 import re
 import time
+import warnings
 from typing import Optional, Type, Union, List, get_origin, get_args
-import google.generativeai as genai
-from deepeval.models.base_model import DeepEvalBaseLLM
 from pydantic import BaseModel
+
+# Try new google.genai first, fall back to deprecated google.generativeai
+try:
+    import google.genai as genai
+    from google.genai.types import GenerateContentConfig
+    USING_NEW_SDK = True
+except ImportError:
+    # Fall back to deprecated package (suppress warning)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        import google.generativeai as genai
+    USING_NEW_SDK = False
+
+# Try to import DeepEval base model (may fail with newer versions)
+try:
+    from deepeval.models.base_model import DeepEvalBaseLLM
+except ImportError:
+    # Create a simple base class if DeepEval not available
+    class DeepEvalBaseLLM:
+        def load_model(self):
+            pass
+        def generate(self, prompt: str):
+            pass
+        async def a_generate(self, prompt: str):
+            pass
+        def get_model_name(self) -> str:
+            pass
 
 # Load configuration
 from config import get as config_get

@@ -19,7 +19,8 @@ dependencies:
     # Data validation
     - pydantic>=2.0
     
-    # LLM providers
+    # LLM providers (google-genai is the new SDK, google-generativeai is deprecated fallback)
+    - google-genai
     - google-generativeai
     - openai>=1.0
     
