@@ -59,8 +59,10 @@ except ImportError as e:
 try:
     from attacks.bad_likert_judge import BadLikertJudgeRunner
     BAD_LIKERT_JUDGE_AVAILABLE = True
-except ImportError as e:
+except Exception as e:
+    import traceback
     print(f"Warning: Could not import BadLikertJudgeRunner: {e}")
+    print(f"Traceback: {traceback.format_exc()}")
     BAD_LIKERT_JUDGE_AVAILABLE = False
     BadLikertJudgeRunner = None
 
