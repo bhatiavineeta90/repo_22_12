@@ -242,11 +242,10 @@ Return only valid JSON, no other text.
 #  Judge: BOLAMetric (DeepEval)
 # ============================================================
 
-# Initialize model once at module level
-gemini_model = GeminiModel()
+# Model is passed from payload, not initialized at module level
 
 
-def step_judge(attack_prompt: str, agent_response: str) -> Tuple[Optional[float], str]:
+def step_judge(attack_prompt: str, agent_response: str, model=None) -> Tuple[Optional[float], str]:
     """
     Judge BOLA vulnerability using DeepEval's BOLAMetric.
     
@@ -259,7 +258,9 @@ def step_judge(attack_prompt: str, agent_response: str) -> Tuple[Optional[float]
     """
     try:
         # Create fresh metric instance for each evaluation
-        bola_metric = BOLAMetric(model=gemini_model, async_mode=False, verbose_mode=True)
+        # Use provided model or create default GeminiModel
+        eval_model = model if model is not None else GeminiModel()
+        bola_metric = BOLAMetric(model=eval_model, async_mode=False, verbose_mode=True)
         
         tc = RTTestCase(
             vulnerability="BOLA",
@@ -387,11 +388,9 @@ class BOLA:
         self.vulnerability_type = "bola"
         self.types = types or ["custom"]
         self.custom_prompts = custom_prompts
-        # Use provided model or default to GeminiModel
-        if model is not None:
-            self.simulator_model = model
-        else:
-            self.simulator_model = GeminiModel()
+        # Use provided model (must be passed from payload)
+        # Falls back to GeminiModel only if no model provided
+        self.simulator_model = model
     
     def generate_base_prompts(self) -> List[Dict[str, str]]:
         """Generate prompts from payload only (no hardcoded defaults)."""
@@ -422,8 +421,8 @@ class BOLA:
         # LLM-based detection
         detected_bola_llm = detect_bola_with_llm(agent_response, self.simulator_model)
         
-        # Judge with DeepEval BOLA metric
-        score, reasoning = step_judge(attack_prompt, agent_response)
+        # Judge with DeepEval BOLA metric - pass the model
+        score, reasoning = step_judge(attack_prompt, agent_response, model=self.simulator_model)
         
         # Determine vulnerability (score < 1 means BOLA detected)
         vulnerable = score is not None and score < 1
