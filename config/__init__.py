@@ -11,8 +11,9 @@ import os
 _config_dir = os.path.dirname(os.path.abspath(__file__))
 _repo_root = os.path.dirname(_config_dir)
 
-# Add lib folder to Python path for deepteam imports
-_lib_path = os.path.join(_repo_root, "lib")
+# Add lib/deepteam folder to Python path for deepteam imports
+# (The deepteam repo has a nested structure: lib/deepteam/deepteam/)
+_lib_path = os.path.join(_repo_root, "lib", "deepteam")
 if _lib_path not in sys.path:
     sys.path.insert(0, _lib_path)
 
