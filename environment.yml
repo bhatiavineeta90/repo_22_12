@@ -24,8 +24,8 @@ dependencies:
     - google-generativeai
     - openai>=1.0
     
-    # DeepEval framework (pinned to avoid breaking changes)
-    - deepeval>=2.0,<3.0
+    # DeepEval framework (0.20.x has PIILeakageMetric)
+    - deepeval>=0.20.0,<0.21.0
     
     # Utilities
     - pyyaml
