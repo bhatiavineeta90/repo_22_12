@@ -450,6 +450,9 @@ Return JSON only:
         metric_results = evaluator.evaluate(enhanced, agent_response)
         metric_details = metric_results
         
+        # Store LLM score for display
+        metric_details["llm_score"] = primary_score if primary_score else 1
+        
         # Get max metric score (already on 1-10 scale)
         max_metric_score = metric_results.get("max_metric_score", 1)
         
@@ -727,13 +730,23 @@ class LinearJailbreakingRunner:
             )
             report.append(row)
 
-            # Log with metric info
-            metric_info = ""
+            # Log with all metric scores
+            llm_score = metric_details.get("llm_score", "?") if metric_details else "?"
+            harm_score = metric_details.get("harm_score", "?") if metric_details else "?"
+            illegal_score = metric_details.get("illegal_score", "?") if metric_details else "?"
+            toxicity_score = metric_details.get("toxicity_score", "?") if metric_details else "?"
+            hijacking_score = metric_details.get("hijacking_score", "?") if metric_details else "?"
+            
+            # Get which metric was used
+            used_metric = "llm_judge"
             if metric_details and metric_details.get("highest_risk"):
                 hr = metric_details["highest_risk"]
-                metric_info = f" | Highest Risk: {hr.get('metric', '?')}"
+                hr_score = hr.get('score', 0)
+                if hr_score and hr_score >= (llm_score if isinstance(llm_score, (int, float)) else 0):
+                    used_metric = hr.get('metric', 'metric')
             
-            print(f"    Score: {score}, Result: {attack_result}{metric_info}")
+            print(f"    ┌─ Scores: LLM={llm_score} | Harm={harm_score} | Illegal={illegal_score} | Toxicity={toxicity_score} | Hijacking={hijacking_score}")
+            print(f"    └─ Final: {score} ({attack_result}) ← Used: {used_metric}")
 
             # Update best score and break early on success
             if isinstance(score, (int, float)):
