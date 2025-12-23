@@ -456,15 +456,25 @@ Return JSON only:
         # Final score = max(LLM score, max metric score)
         all_scores = []
         if primary_score is not None:
-            all_scores.append(primary_score)
+            all_scores.append(("llm_judge", primary_score, primary_reasoning))
         if max_metric_score is not None and max_metric_score > 1:
-            all_scores.append(max_metric_score)
+            highest_risk = metric_results.get('highest_risk', {})
+            metric_reason = highest_risk.get('reason', '')
+            all_scores.append((highest_risk.get('metric', 'metric'), max_metric_score, metric_reason))
         
         if all_scores:
-            final_score = max(all_scores)
-            if final_score > (primary_score or 0):
-                highest_risk = metric_results.get('highest_risk', {})
-                primary_reasoning += f" [Max score from {highest_risk.get('metric', 'metric')}: {final_score}]"
+            # Find the source with max score
+            max_source = max(all_scores, key=lambda x: x[1])
+            source_name, final_score, source_reason = max_source
+            
+            # Round up to whole number (5.5 -> 6)
+            import math
+            final_score = int(math.ceil(final_score))
+            
+            # Use the reason from the metric that provided the max score
+            if source_name != "llm_judge":
+                primary_reasoning = f"{source_reason} [Score {final_score} from {source_name}]"
+            
             primary_score = final_score
                     
     except Exception as e:
