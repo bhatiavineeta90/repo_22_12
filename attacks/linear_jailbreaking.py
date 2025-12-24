@@ -254,6 +254,7 @@ class MultiMetricEvaluator:
             test_case = RTTestCase(
                 input=attack_prompt,
                 actual_output=agent_response,
+                vulnerability="jailbreaking",
             )
             
             scores = {}
