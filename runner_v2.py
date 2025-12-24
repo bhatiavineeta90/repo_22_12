@@ -255,7 +255,7 @@ class RedTeamV2:
         
         return list(types) if types else ["direct_disclosure"]
     
-    def run_attack(self, attack_profile: AttackProfile) -> Tuple[str, List[Dict]]:
+    def run_attack(self, attack_profile: AttackProfile) -> Tuple[str, List[Dict], Dict]:
         """
         Execute a single attack profile.
         
@@ -267,16 +267,17 @@ class RedTeamV2:
             attack_profile: AttackProfile to execute
             
         Returns:
-            Tuple of (run_id, attack_results)
+            Tuple of (run_id, attack_results, report_stats)
         """
         attack_type = attack_profile.attack_type
         runner = self.attack_runners.get(attack_type)
         
         if not runner:
             print(f"No runner available for attack type: {attack_type}")
-            return str(uuid.uuid4()), []
+            return str(uuid.uuid4()), [], {}
         
         all_results = []
+        all_report_stats = {}
         
         # Check for attack_sequence (multi-turn scripted mode)
         if attack_profile.attack_sequence:
@@ -291,12 +292,14 @@ class RedTeamV2:
             }
             
             try:
-                run_id, results = runner.run(attack_payload, model=self.model)
+                run_id, results, report_stats = runner.run(attack_payload, model=self.model)
                 for r in results:
                     r["attack_profile_id"] = attack_profile.id
                     r["attack_profile_name"] = attack_profile.name
                     r["attack_mode"] = "multi_turn_scripted"
+                    r["report_stats"] = report_stats  # Add report_stats to each result
                 all_results.extend(results)
+                all_report_stats = report_stats  # Store latest report_stats
             except Exception as e:
                 print(f"Attack sequence error: {e}")
                 all_results.append({
@@ -322,12 +325,14 @@ class RedTeamV2:
                 if attack_profile.category:
                     attack_payload["category"] = attack_profile.category
                 try:
-                    run_id, results = runner.run(attack_payload, model=self.model)
+                    run_id, results, report_stats = runner.run(attack_payload, model=self.model)
                     for r in results:
                         r["attack_profile_id"] = attack_profile.id
                         r["attack_profile_name"] = attack_profile.name
                         r["attack_mode"] = "single_turn"
+                        r["report_stats"] = report_stats  # Add report_stats to each result
                     all_results.extend(results)
+                    all_report_stats = report_stats  # Store latest report_stats
                 except Exception as e:
                     print(f"Attack error: {e}")
                     all_results.append({
@@ -339,7 +344,7 @@ class RedTeamV2:
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     })
         
-        return generate_run_id(), all_results
+        return generate_run_id(), all_results, all_report_stats
     
     def evaluate_vulnerability(
         self,
@@ -630,7 +635,7 @@ class RedTeamV2:
                 print(f"    Turns: {attack_profile.turn_config.turns}")
                 
                 # Run attack
-                _, attack_results = self.run_attack(attack_profile)
+                _, attack_results, attack_stats = self.run_attack(attack_profile)
                 
                 # Evaluate each result against vulnerability profiles
                 for attack_result in attack_results:
@@ -727,12 +732,25 @@ class RedTeamV2:
         
         # Count attack successes across all attack types
         attack_success_count = 0
+        total_llm_calls = 0
+        llm_model = None
+        
         for r in results:
             # Check for any attack type success
             for key in r.keys():
                 if key.endswith("_result") and r[key] == "Success":
                     attack_success_count += 1
                     break
+            
+            # Extract report_stats if present
+            report_stats = r.get("report_stats", {})
+            if report_stats:
+                total_llm_calls = max(total_llm_calls, report_stats.get("total_llm_calls", 0))
+                if not llm_model:
+                    llm_model = report_stats.get("llm_model")
+        
+        # Calculate attack success rate
+        attack_success_rate = (attack_success_count / len(results)) * 100 if results else 0
         
         return {
             "total_tests": len(results),
@@ -742,6 +760,9 @@ class RedTeamV2:
             "pass_count": sum(1 for r in results if "PASS" in r.get("overall_result", "")),
             "vulnerability_count": sum(1 for r in results if r.get("vulnerability_detected")),
             "attack_success_count": attack_success_count,
+            "attack_success_rate_pct": round(attack_success_rate, 1),
+            "total_llm_calls": total_llm_calls,
+            "llm_model": llm_model,
         }
     
     def _print_summary(self, results: List[Dict[str, Any]], run_id: str):
@@ -764,9 +785,14 @@ class RedTeamV2:
         print(f"  🟡 MEDIUM: {summary['medium_count']}")
         print(f"  🟢 PASS: {summary['pass_count']}")
         
-        print(f"\nStatistics:")
-        print(f"  Attack Successes: {summary['attack_success_count']}")
+        print(f"\nAttack Statistics:")
+        print(f"  Attack Successes: {summary['attack_success_count']}/{len(results)}")
+        print(f"  Attack Success Rate: {summary['attack_success_rate_pct']}%")
         print(f"  Vulnerabilities Detected: {summary['vulnerability_count']}")
+        
+        print(f"\nLLM Statistics:")
+        print(f"  Total LLM Calls: {summary['total_llm_calls']}")
+        print(f"  LLM Model: {summary['llm_model'] or 'Unknown'}")
         
         overall_vulnerable = summary['critical_count'] > 0 or summary['high_count'] > 0 or summary['vulnerability_count'] > 0
         print(f"\nOverall Status: {'🔴 VULNERABLE' if overall_vulnerable else '🟢 SECURE'}")
