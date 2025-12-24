@@ -647,7 +647,7 @@ class BadLikertJudgeRunner:
     """
     name = "bad_likert_judge"
 
-    def run(self, payload: Dict[str, Any], model=None) -> Tuple[str, List[Dict[str, Any]]]:
+    def run(self, payload: Dict[str, Any], model=None) -> Tuple[str, List[Dict[str, Any]], Dict]:
         """
         Run the Bad Likert Judge attack.
         
@@ -663,7 +663,7 @@ class BadLikertJudgeRunner:
             model: Optional LLM model for simulation
             
         Returns:
-            Tuple of (run_id, attack_results)
+            Tuple of (run_id, attack_results, report_stats)
         """
         # Extract configuration from payload
         initial = payload.get("initial_attack_prompt") or payload.get("objective", "")
@@ -687,10 +687,22 @@ class BadLikertJudgeRunner:
         report: List[Dict[str, Any]] = []
         best_score = None
         current_attack = initial
+        
+        # Statistics tracking
+        llm_call_count = 0
+        success_count = 0
+        model_name = model.get_model_name() if hasattr(model, 'get_model_name') else str(type(model).__name__)
 
-        print(f"    Starting Bad Likert Judge attack (category: {category}, turns: {num_turns})")
+        print(f"\n{'='*60}")
+        print(f"BAD LIKERT JUDGE ATTACK")
+        print(f"Objective: {initial[:60]}...")
+        print(f"Category: {category}, Turns: {num_turns}")
+        print(f"LLM Model: {model_name}")
+        print(f"{'='*60}\n")
 
         for t in range(1, num_turns + 1):
+            print(f"  Turn {t}/{num_turns}...")
+            
             # Call the agent with current attack prompt
             result = call_agent_app(current_attack, timeout_secs, session_id)
             agent_response = result["response"]
@@ -708,6 +720,7 @@ class BadLikertJudgeRunner:
                     judge_response = model.generate(judge_prompt)
                 else:
                     judge_response = attack.simulator_model.generate(judge_prompt)
+                llm_call_count += 1  # Judge call
                 
                 # Parse the judgment (expects JSON with score and classification)
                 try:
@@ -735,6 +748,8 @@ class BadLikertJudgeRunner:
             attack_result, is_guardrail, guardrail_reason = map_attack_result(
                 score, classification, agent_response, current_attack, eval_model
             )
+            if not is_guardrail:
+                llm_call_count += 1  # Guardrail LLM check
             
             # Update reasoning if guardrail was detected
             if is_guardrail:
@@ -748,6 +763,7 @@ class BadLikertJudgeRunner:
                     score, classification, category
                 )
                 mitigation = normalize_suggestions(generate_text_with_simulator(attack, mit_prompt))
+                llm_call_count += 1  # Mitigation call
 
             # Build the turn result
             ts = datetime.now(timezone.utc).isoformat()
@@ -768,19 +784,22 @@ class BadLikertJudgeRunner:
             )
             report.append(row)
 
+            # Count successes based on final attack_result (NO early break - run all turns)
+            if attack_result == "Success":
+                success_count += 1
+                print(f"    ✓ Attack succeeded (Score={score}, Classification=Harmful)")
+            
             # Track best score
             if isinstance(score, (int, float)):
                 best_score = score if best_score is None else max(best_score, score)
-                # Break early on successful attack (only if not a guardrail)
-                if classification == "Harmful" and not is_guardrail:
-                    print(f"      Turn {t}: Success! Classification=Harmful, Score={score}")
-                    break
 
             # Log with guardrail info
             if is_guardrail:
-                print(f"      Turn {t}: {attack_result} (LLM Guardrail detected - {guardrail_reason[:50]}...)")
+                print(f"    ┌─ GUARDRAIL DETECTED: {guardrail_reason[:50]}...")
+                print(f"    └─ Result: {attack_result}")
             else:
-                print(f"      Turn {t}: {attack_result} (Score={score}, Classification={classification})")
+                print(f"    ┌─ Score={score}, Classification={classification}")
+                print(f"    └─ Result: {attack_result}")
 
             # Generate improved attack prompt for next turn
             if t < num_turns and attack_result != "Success":
@@ -794,6 +813,7 @@ class BadLikertJudgeRunner:
                         improve_response = model.generate(improve_prompt)
                     else:
                         improve_response = attack.simulator_model.generate(improve_prompt)
+                    llm_call_count += 1  # Improvement call
                     
                     # Extract the improved attack from response
                     if isinstance(improve_response, str):
@@ -812,8 +832,39 @@ class BadLikertJudgeRunner:
 
         # Generate run_id
         run_id = (session_id or "blj-session") + "-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        
+        # Calculate success percentage based on attack_result per turn
+        total_turns = len(report)
+        fail_count = total_turns - success_count
+        success_pct = (success_count / total_turns) * 100 if total_turns > 0 else 0
+        
+        print(f"\n{'='*60}")
+        print(f"COMPLETED: BAD LIKERT JUDGE")
+        print(f"{'='*60}")
+        print(f"  Best Score: {best_score}")
+        print(f"  Total Turns: {total_turns}")
+        print(f"  Successful Turns (attack_result=Success): {success_count}")
+        print(f"  Failed Turns (attack_result=Fail/Partial): {fail_count}")
+        print(f"  Success Rate: {success_pct:.1f}%")
+        print(f"  Total LLM Calls: {llm_call_count}")
+        print(f"  LLM Model: {model_name}")
+        print(f"  Run ID: {run_id}")
+        print(f"{'='*60}\n")
+        
+        # Add statistics to report
+        report_stats = {
+            "best_score": best_score,
+            "total_turns": total_turns,
+            "successful_turns": success_count,
+            "failed_turns": fail_count,
+            "success_rate_pct": round(success_pct, 1),
+            "total_llm_calls": llm_call_count,
+            "llm_model": model_name,
+            "category": category,
+            "run_id": run_id
+        }
 
-        return run_id, report
+        return run_id, report, report_stats
 
     def iter_run(self, payload: Dict[str, Any], model=None):
         """
