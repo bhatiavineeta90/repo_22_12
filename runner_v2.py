@@ -293,7 +293,7 @@ class RedTeamV2:
             
             try:
                 run_id, results, report_stats = runner.run(attack_payload, model=self.model)
-                attack_llm_calls_per_turn = report_stats.get(\"total_llm_calls\", 0) // len(results) if results else 0
+                attack_llm_calls_per_turn = report_stats.get("total_llm_calls", 0) // len(results) if results else 0
                 for r in results:
                     r["attack_profile_id"] = attack_profile.id
                     r["attack_profile_name"] = attack_profile.name
