@@ -293,11 +293,13 @@ class RedTeamV2:
             
             try:
                 run_id, results, report_stats = runner.run(attack_payload, model=self.model)
+                attack_llm_calls_per_turn = report_stats.get(\"total_llm_calls\", 0) // len(results) if results else 0
                 for r in results:
                     r["attack_profile_id"] = attack_profile.id
                     r["attack_profile_name"] = attack_profile.name
                     r["attack_mode"] = "multi_turn_scripted"
                     r["report_stats"] = report_stats  # Add report_stats to each result
+                    r["attack_llm_calls"] = attack_llm_calls_per_turn  # Add per-turn LLM call count
                 all_results.extend(results)
                 all_report_stats = report_stats  # Store latest report_stats
             except Exception as e:
@@ -326,11 +328,13 @@ class RedTeamV2:
                     attack_payload["category"] = attack_profile.category
                 try:
                     run_id, results, report_stats = runner.run(attack_payload, model=self.model)
+                    attack_llm_calls_per_turn = report_stats.get(\"total_llm_calls\", 0) // len(results) if results else 0
                     for r in results:
                         r["attack_profile_id"] = attack_profile.id
                         r["attack_profile_name"] = attack_profile.name
                         r["attack_mode"] = "single_turn"
                         r["report_stats"] = report_stats  # Add report_stats to each result
+                        r["attack_llm_calls"] = attack_llm_calls_per_turn  # Add per-turn LLM call count
                     all_results.extend(results)
                     all_report_stats = report_stats  # Store latest report_stats
                 except Exception as e:
@@ -556,6 +560,11 @@ class RedTeamV2:
         else:
             overall_result = "PASS - Secure"
         
+        # Extract LLM call counts
+        attack_llm_calls = attack_result.get("attack_llm_calls", 0)
+        vuln_llm_calls = vuln_result.get("llm_calls_made", 0)
+        total_llm_calls_this_turn = attack_llm_calls + vuln_llm_calls
+        
         merged = {
             # Payload info
             "payload_id": self.payload.id,
@@ -582,6 +591,11 @@ class RedTeamV2:
             "vulnerability_severity": vuln_result.get("severity"),
             "vulnerability_reasoning": vuln_result.get("reasoning", ""),
             "detected_pii_types": vuln_result.get("detected_pii_by_type", []),
+            
+            # LLM call tracking
+            "llm_calls_attack": attack_llm_calls,
+            "llm_calls_vuln": vuln_llm_calls,
+            "llm_calls_total_turn": total_llm_calls_this_turn,
             
             # Overall
             "overall_result": overall_result,
@@ -733,7 +747,6 @@ class RedTeamV2:
         # Count attack successes across all attack types
         attack_success_count = 0
         total_llm_calls = 0
-        llm_model = None
         
         for r in results:
             # Check for any attack type success
@@ -742,12 +755,12 @@ class RedTeamV2:
                     attack_success_count += 1
                     break
             
-            # Extract report_stats if present
-            report_stats = r.get("report_stats", {})
-            if report_stats:
-                total_llm_calls = max(total_llm_calls, report_stats.get("total_llm_calls", 0))
-                if not llm_model:
-                    llm_model = report_stats.get("llm_model")
+            # Sum LLM calls from this result (includes both attack and vuln)
+            llm_calls_this_turn = r.get("llm_calls_total_turn", 0)
+            total_llm_calls += llm_calls_this_turn
+        
+        # Get model name from payload instead of report_stats
+        llm_model = self.payload.mode_constraints.llm.value
         
         # Calculate attack success rate
         attack_success_rate = (attack_success_count / len(results)) * 100 if results else 0
