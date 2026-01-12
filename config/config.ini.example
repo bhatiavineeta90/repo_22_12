@@ -23,3 +23,7 @@ api_version = 2024-08-01-preview
 base_url = http://127.0.0.1:8000
 endpoint_path = /aa-api/v1/utility/get_query
 timeout_secs = 10
+
+[mongodb]
+uri = mongodb://localhost:27017/
+database_name = redteam

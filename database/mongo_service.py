@@ -5,6 +5,7 @@ Handles all database operations with real-time status updates.
 """
 
 import os
+import configparser
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from pymongo import MongoClient, ASCENDING, DESCENDING
@@ -22,9 +23,42 @@ from database.models import (
 )
 
 
-# Default configuration
-DEFAULT_MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
-DEFAULT_DB_NAME = os.environ.get("MONGO_DB_NAME", "redteam")
+# ============================================================
+#  Configuration Loading
+# ============================================================
+
+def _load_config():
+    """Load MongoDB configuration from config.ini file."""
+    config = configparser.ConfigParser()
+    
+    # Try to find config.ini in common locations
+    config_paths = [
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "config.ini"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "config.ini"),
+        "config/config.ini",
+    ]
+    
+    for config_path in config_paths:
+        if os.path.exists(config_path):
+            config.read(config_path)
+            break
+    
+    return config
+
+# Load config
+_config = _load_config()
+
+# Default configuration - Priority: config.ini > environment variable > hardcoded default
+DEFAULT_MONGO_URI = (
+    _config.get("mongodb", "uri", fallback=None) or
+    os.environ.get("MONGO_URI") or
+    "mongodb://localhost:27017/"
+)
+DEFAULT_DB_NAME = (
+    _config.get("mongodb", "database_name", fallback=None) or
+    os.environ.get("MONGO_DB_NAME") or
+    "redteam"
+)
 
 
 class MongoDBService:
