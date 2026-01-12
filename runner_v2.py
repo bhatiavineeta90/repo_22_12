@@ -67,6 +67,14 @@ except Exception as e:
     BadLikertJudgeRunner = None
 
 try:
+    from attacks.crescendo_jailbreaking import CrescendoJailbreakingRunner
+    CRESCENDO_JAILBREAKING_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Could not import CrescendoJailbreakingRunner: {e}")
+    CRESCENDO_JAILBREAKING_AVAILABLE = False
+    CrescendoJailbreakingRunner = None
+
+try:
     from vulnerabilities.pii_leakage_deep import PIILeakageDeep
     PII_LEAKAGE_DEEP_AVAILABLE = True
 except ImportError as e:
@@ -98,6 +106,16 @@ except ImportError as e:
     PromptLeakage = None
 
 from models.model_factory import get_model
+
+# MongoDB Storage Integration
+try:
+    from database import get_storage, StorageHelper, RunStatus, JailbreakResult
+    MONGODB_STORAGE_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: MongoDB storage not available: {e}")
+    MONGODB_STORAGE_AVAILABLE = False
+    get_storage = None
+    StorageHelper = None
 
 
 # ============================================================
@@ -174,12 +192,13 @@ class RedTeamV2:
     Processes attack_profiles and vulnerability_profiles from RedTeamPayload.
     """
     
-    def __init__(self, payload: RedTeamPayload):
+    def __init__(self, payload: RedTeamPayload, enable_storage: bool = True):
         """
         Initialize RedTeamV2 with a payload configuration.
         
         Args:
             payload: RedTeamPayload containing all test configuration
+            enable_storage: Whether to save results to MongoDB (default True)
         """
         self.payload = payload
         
@@ -187,6 +206,20 @@ class RedTeamV2:
         llm_provider = payload.mode_constraints.llm.value
         self.model = get_model(llm_provider)
         print(f"Using LLM provider: {llm_provider} -> {self.model}")
+        
+        # Initialize MongoDB storage
+        self.storage = None
+        if enable_storage and MONGODB_STORAGE_AVAILABLE:
+            try:
+                self.storage = get_storage()
+                if self.storage.enabled:
+                    print("📊 MongoDB storage enabled")
+                else:
+                    print("⚠️ MongoDB storage not connected (results will only save to files)")
+                    self.storage = None
+            except Exception as e:
+                print(f"⚠️ MongoDB storage init failed: {e}")
+                self.storage = None
         
         self._init_attack_runners()
         self._init_vulnerability_checkers()
@@ -215,6 +248,12 @@ class RedTeamV2:
             self.attack_runners[AttackType.BAD_LIKERT_JUDGE] = BadLikertJudgeRunner()
         else:
             print("Warning: BadLikertJudgeRunner not available")
+        
+        # Register CrescendoJailbreakingRunner
+        if CRESCENDO_JAILBREAKING_AVAILABLE:
+            self.attack_runners[AttackType.CRESCENDO] = CrescendoJailbreakingRunner()
+        else:
+            print("Warning: CrescendoJailbreakingRunner not available")
     
     def _init_vulnerability_checkers(self):
         """Initialize vulnerability checkers based on available modules."""
@@ -623,11 +662,43 @@ class RedTeamV2:
         print(f"  RED TEAM V2 - {self.payload.meta_data.name}")
         print(f"{'='*70}")
         print(f"Payload ID: {self.payload.id}")
+        print(f"Run ID: {run_id}")
         print(f"Attack Profiles: {len(self.payload.attack_profiles)}")
         print(f"Vulnerability Profiles: {len(self.payload.vulnerability_profiles)}")
         print(f"LLM: {self.payload.mode_constraints.llm.value}")
         print(f"Temperature: {self.payload.mode_constraints.temperature}")
+        print(f"Storage: {'MongoDB' if self.storage else 'File only'}")
         print()
+        
+        # Start run in MongoDB storage
+        if self.storage:
+            attack_profiles_data = [
+                {
+                    "id": ap.id,
+                    "name": ap.name,
+                    "attack_type": ap.attack_type.value,
+                    "turn_config": {"turns": ap.turn_config.turns}
+                }
+                for ap in self.payload.attack_profiles
+            ]
+            vuln_profiles_data = [
+                {
+                    "id": vp.id,
+                    "name": vp.name,
+                    "vulnerability_type": vp.vulnerability_type.value
+                }
+                for vp in self.payload.vulnerability_profiles
+            ]
+            self.storage.start_run(
+                run_id=run_id,
+                payload_id=self.payload.id,
+                payload_name=self.payload.meta_data.name,
+                llm_model=self.payload.mode_constraints.llm.value,
+                temperature=self.payload.mode_constraints.temperature,
+                attack_profiles=attack_profiles_data,
+                vulnerability_profiles=vuln_profiles_data,
+            )
+            print(f"📊 Run {run_id} started in MongoDB")
         
         # Check mode
         allowed_modes = self.payload.mode_constraints.allowed_modes
@@ -675,6 +746,10 @@ class RedTeamV2:
                             )
                             all_results.append(merged)
                             
+                            # Save to MongoDB storage
+                            if self.storage:
+                                self._save_result_to_storage(merged, run_id, attack_profile, vuln_profile)
+                            
                             # Print turn summary
                             turn = merged.get("turn", "?")
                             
@@ -713,6 +788,10 @@ class RedTeamV2:
                         }
                         merged = self.merge_results(attack_result, vuln_result, attack_profile)
                         all_results.append(merged)
+                        
+                        # Save to MongoDB storage (without vuln profile)
+                        if self.storage:
+                            self._save_result_to_storage(merged, run_id, attack_profile, None)
         
         except KeyboardInterrupt:
             print("\n\n[!] Interrupted by user - saving partial results...")
@@ -733,6 +812,16 @@ class RedTeamV2:
                 csv_path = append_csv(all_results)
                 print(f"\n[+] Results saved to: {run_json_path}")
                 print(f"[+] CSV appended to: {csv_path}")
+            
+            # Complete run in MongoDB storage
+            if self.storage and all_results:
+                summary = self._generate_summary(all_results)
+                self.storage.complete_run(
+                    run_id=run_id,
+                    overall_success_rate=summary.get("attack_success_rate_pct", 0),
+                    overall_risk_level=self._determine_risk_level(summary),
+                )
+                print(f"📊 Run {run_id} completed in MongoDB")
             
             # Print summary
             self._print_summary(all_results, run_id)
@@ -810,6 +899,88 @@ class RedTeamV2:
         overall_vulnerable = summary['critical_count'] > 0 or summary['high_count'] > 0 or summary['vulnerability_count'] > 0
         print(f"\nOverall Status: {'🔴 VULNERABLE' if overall_vulnerable else '🟢 SECURE'}")
         print(f"{'='*70}\n")
+    
+    def _save_result_to_storage(
+        self,
+        merged: Dict[str, Any],
+        run_id: str,
+        attack_profile: AttackProfile,
+        vuln_profile: Optional[VulnerabilityProfile]
+    ):
+        """Save a merged result to MongoDB storage."""
+        if not self.storage:
+            return
+            
+        try:
+            # Determine jailbreak result from merged data
+            attack_type = attack_profile.attack_type.value
+            result_key = f"{attack_type.replace('_jailbreaking', '')}_result"
+            if attack_type == "linear_jailbreaking":
+                result_key = "jailbreak_result"
+            elif attack_type == "prompt_injection":
+                result_key = "prompt_injection_result"
+            elif attack_type == "crescendo":
+                result_key = "crescendo_result"
+            elif attack_type == "bad_likert_judge":
+                result_key = "likert_judge_result"
+            
+            # Find the result value
+            jailbreak_result = merged.get(result_key, "Fail")
+            if not isinstance(jailbreak_result, str):
+                for k, v in merged.items():
+                    if k.endswith("_result") and isinstance(v, str):
+                        jailbreak_result = v
+                        break
+            
+            # Find the score
+            score_key = result_key.replace("_result", "_score")
+            jailbreak_score = merged.get(score_key, 1.0)
+            if not isinstance(jailbreak_score, (int, float)):
+                for k, v in merged.items():
+                    if k.endswith("_score") and isinstance(v, (int, float)):
+                        jailbreak_score = v
+                        break
+            
+            # Save to storage
+            self.storage.save_turn_result(
+                run_id=run_id,
+                payload_id=self.payload.id,
+                attack_profile_id=attack_profile.id,
+                attack_profile_name=attack_profile.name,
+                attack_type=attack_type,
+                session_id=merged.get("session_id", ""),
+                turn=merged.get("turn", 1),
+                llm_provider=self.payload.mode_constraints.llm.value,
+                temperature=self.payload.mode_constraints.temperature,
+                attack_prompt=merged.get("attack_prompt", ""),
+                agent_response=merged.get("agent_response", ""),
+                jailbreak_score=float(jailbreak_score) if jailbreak_score else 1.0,
+                jailbreak_result=jailbreak_result,
+                jailbreak_reasoning=merged.get(result_key.replace("_result", "_reasoning"), ""),
+                vulnerability_profile_id=vuln_profile.id if vuln_profile else None,
+                vulnerability_profile_name=vuln_profile.name if vuln_profile else None,
+                vulnerability_detected=merged.get("vulnerability_detected", False),
+                vulnerability_score=merged.get("vulnerability_score"),
+                vulnerability_severity=merged.get("vulnerability_severity"),
+                vulnerability_reasoning=merged.get("vulnerability_reasoning"),
+                detected_pii_types=merged.get("detected_pii_types", []),
+                overall_result=merged.get("overall_result", "FAIL"),
+                raw_result=merged,
+            )
+        except Exception as e:
+            print(f"    ⚠️ Storage save error: {e}")
+    
+    def _determine_risk_level(self, summary: Dict[str, Any]) -> str:
+        """Determine overall risk level from summary stats."""
+        if summary.get("critical_count", 0) > 0:
+            return "critical"
+        elif summary.get("high_count", 0) > 0:
+            return "high"
+        elif summary.get("medium_count", 0) > 0 or summary.get("vulnerability_count", 0) > 0:
+            return "medium"
+        elif summary.get("attack_success_count", 0) > 0:
+            return "low"
+        return "none"
 
 
 # ============================================================
