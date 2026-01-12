@@ -1,5 +1,5 @@
 import streamlit as st
-import httpx
+import requests
 import json
 import time
 import pandas as pd
@@ -28,7 +28,7 @@ if 'current_run_summary' not in st.session_state:
 
 def fetch_results():
     try:
-        response = httpx.get(f"{BACKEND_URL}{API_V2_STR}/results")
+        response = requests.get(f"{BACKEND_URL}{API_V2_STR}/results", timeout=10)
         return response.json().get("results", [])
     except Exception as e:
         st.error(f"Error fetching results: {e}")
@@ -36,7 +36,7 @@ def fetch_results():
 
 def get_result_details(run_id):
     try:
-        response = httpx.get(f"{BACKEND_URL}{API_V2_STR}/results/{run_id}")
+        response = requests.get(f"{BACKEND_URL}{API_V2_STR}/results/{run_id}", timeout=10)
         return response.json()
     except Exception as e:
         st.error(f"Error fetching run details: {e}")
@@ -48,10 +48,10 @@ def render_sidebar():
     st.sidebar.title("RedTeam")
     st.sidebar.markdown("")
     try:
-        health = httpx.get(f"{BACKEND_URL}{API_V2_STR}/health", timeout=2.0).json()
+        health = requests.get(f"{BACKEND_URL}{API_V2_STR}/health", timeout=5).json()
         st.sidebar.success(f"Backend: {health['status']} (v{health['version']})")
-    except:
-        st.sidebar.error("Backend: Offline")
+    except Exception as e:
+        st.sidebar.error(f"Backend: Offline ({type(e).__name__})")
 
     st.sidebar.markdown("### Navigation")
     if st.sidebar.button("➕ New Test Suite", use_container_width=True):
@@ -199,11 +199,14 @@ def run_sync_test(payload):
     try:
         # Set 5-minute timeout for long tests
         log_container.write("Sending request to backend...")
-        with httpx.Client(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
-            response = client.post(f"{BACKEND_URL}{API_V2_STR}/test/run", json=payload)
-            log_container.write(f"Response status: {response.status_code}")
-            
-            if response.status_code == 200:
+        response = requests.post(
+            f"{BACKEND_URL}{API_V2_STR}/test/run", 
+            json=payload,
+            timeout=300  # 5 minutes
+        )
+        log_container.write(f"Response status: {response.status_code}")
+        
+        if response.status_code == 200:
                 data = response.json()
                 log_container.write(f"✅ Success. Run ID: {data['run_id']}")
                 log_container.write(f"Results saved to: {data.get('artifacts', {}).get('json_path')}")
@@ -335,8 +338,8 @@ def run_sync_test(payload):
                 inf2.write(f"**LLM Model:** `{payload['payload']['mode_constraints']['llm']}`")
                 inf3.write(f"**Total LLM Calls:** `{total_tests * 2} (Approx)`")
 
-            else:
-                st.error(f"Execution Error: {response.text}")
+        else:
+            st.error(f"Execution Error: {response.text}")
     except Exception as e:
         st.error(f"Connection Failed: {e}")
 
