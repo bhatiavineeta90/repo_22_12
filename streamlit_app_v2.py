@@ -197,8 +197,11 @@ def run_sync_test(payload):
     status_msg.info("Running Security Scan... Please wait.")
 
     try:
-        with httpx.Client(timeout=None) as client:
+        # Set 5-minute timeout for long tests
+        log_container.write("Sending request to backend...")
+        with httpx.Client(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
             response = client.post(f"{BACKEND_URL}{API_V2_STR}/test/run", json=payload)
+            log_container.write(f"Response status: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
