@@ -11,6 +11,10 @@ import uuid
 BACKEND_URL = "http://localhost:8001"
 API_V2_STR = "/api/v2"
 
+# Bypass proxy for localhost
+import os
+os.environ['NO_PROXY'] = 'localhost,127.0.0.1'
+
 st.set_page_config(
     page_title="CXLoop RedTeam",
     layout="wide",
