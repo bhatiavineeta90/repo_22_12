@@ -124,8 +124,8 @@ except ImportError as e:
 
 def write_run_json(run_id: str, data: Dict[str, Any]) -> str:
     """Write run results to JSON file."""
-    os.makedirs("results/runs", exist_ok=True)
-    filepath = f"results/runs/{run_id}.json"
+    os.makedirs("apiv2/results/runs", exist_ok=True)
+    filepath = f"apiv2/results/runs/{run_id}.json"
     
     with open(filepath, 'w') as f:
         json.dump(data, f, indent=2, default=str)
@@ -135,8 +135,8 @@ def write_run_json(run_id: str, data: Dict[str, Any]) -> str:
 
 def append_csv(data: List[Dict[str, Any]], filename: str = "all_results_v2.csv") -> str:
     """Append results to CSV file."""
-    os.makedirs("results/reports", exist_ok=True)
-    filepath = f"results/reports/{filename}"
+    os.makedirs("apiv2/results/reports", exist_ok=True)
+    filepath = f"apiv2/results/reports/{filename}"
     
     if not data:
         return filepath
