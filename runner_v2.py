@@ -107,15 +107,18 @@ except ImportError as e:
 
 from models.model_factory import get_model
 
-# MongoDB Storage Integration
-try:
-    from database import get_storage, StorageHelper, RunStatus, JailbreakResult
-    MONGODB_STORAGE_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: MongoDB storage not available: {e}")
-    MONGODB_STORAGE_AVAILABLE = False
-    get_storage = None
-    StorageHelper = None
+# MongoDB Storage Integration - DISABLED (saving to JSON/CSV only)
+# try:
+#     from database import get_storage, StorageHelper, RunStatus, JailbreakResult
+#     MONGODB_STORAGE_AVAILABLE = True
+# except ImportError as e:
+#     print(f"Warning: MongoDB storage not available: {e}")
+#     MONGODB_STORAGE_AVAILABLE = False
+#     get_storage = None
+#     StorageHelper = None
+MONGODB_STORAGE_AVAILABLE = False
+get_storage = None
+StorageHelper = None
 
 
 # ============================================================
@@ -207,19 +210,19 @@ class RedTeamV2:
         self.model = get_model(llm_provider)
         print(f"Using LLM provider: {llm_provider} -> {self.model}")
         
-        # Initialize MongoDB storage
+        # MongoDB storage DISABLED - saving to JSON/CSV only
         self.storage = None
-        if enable_storage and MONGODB_STORAGE_AVAILABLE:
-            try:
-                self.storage = get_storage()
-                if self.storage.enabled:
-                    print("📊 MongoDB storage enabled")
-                else:
-                    print("⚠️ MongoDB storage not connected (results will only save to files)")
-                    self.storage = None
-            except Exception as e:
-                print(f"⚠️ MongoDB storage init failed: {e}")
-                self.storage = None
+        # if enable_storage and MONGODB_STORAGE_AVAILABLE:
+        #     try:
+        #         self.storage = get_storage()
+        #         if self.storage.enabled:
+        #             print("📊 MongoDB storage enabled")
+        #         else:
+        #             print("⚠️ MongoDB storage not connected (results will only save to files)")
+        #             self.storage = None
+        #     except Exception as e:
+        #         print(f"⚠️ MongoDB storage init failed: {e}")
+        #         self.storage = None
         
         self._init_attack_runners()
         self._init_vulnerability_checkers()

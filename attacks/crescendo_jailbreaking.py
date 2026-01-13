@@ -389,7 +389,7 @@ class CrescendoJailbreaking:
     def __init__(
         self,
         max_rounds: int = 10,
-        max_backtracks: int = 10,
+        max_backtracks: int = 5,
         simulator_model=None,
     ):
         self.max_rounds = max_rounds
