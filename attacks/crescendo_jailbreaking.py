@@ -571,7 +571,7 @@ class CrescendoJailbreakingRunner:
             payload: Attack configuration with:
                 - initial_attack_prompt: The attack objective
                 - turns: Max rounds (default 10)
-                - max_backtracks: Max backtrack attempts (default 10)
+                - max_backtracks: Max backtrack attempts (default 5)
                 - session_id: Optional session ID
                 - agent: Agent config with timeout_secs
             model: LLM model for simulation and judging
@@ -582,7 +582,7 @@ class CrescendoJailbreakingRunner:
         # Extract configuration
         initial = payload.get("initial_attack_prompt") or payload.get("objective", "")
         max_rounds = int(payload.get("turns", 10))
-        max_backtracks = int(payload.get("max_backtracks", 10))
+        max_backtracks = int(payload.get("max_backtracks", 5))
         session_id = payload.get("session_id")
         agent_cfg = payload.get("agent") or {}
         timeout_secs = int(agent_cfg.get("timeout_secs", 15))
