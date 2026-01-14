@@ -140,6 +140,8 @@ def generate_sse_events_v2(request: TestRunRequestV2) -> Generator[str, None, No
                 yield f"data: {json.dumps({'type': 'step', 'step': 'evaluating', 'message': f'Evaluating turn {turn} (JB score: {jb_score})'})}\n\n"
                 
                 if request.payload.vulnerability_profiles:
+                    # Collect ALL vulnerability results for this turn first
+                    vuln_results = []
                     for vuln_profile in request.payload.vulnerability_profiles:
                         yield f"data: {json.dumps({'type': 'step', 'step': 'vuln_check', 'message': f'Checking {vuln_profile.vulnerability_type.value}'})}\n\n"
                         
@@ -148,29 +150,32 @@ def generate_sse_events_v2(request: TestRunRequestV2) -> Generator[str, None, No
                             attack_result.get("agent_response", ""),
                             vuln_profile
                         )
-                        
-                        merged = runner.merge_results(attack_result, vuln_result, attack_profile, vuln_profile)
-                        all_results.append(merged)
-                        
-                        # Stream turn result
-                        yield f"data: {json.dumps({'type': 'turn', 'data': merged}, default=str)}\n\n"
+                        vuln_results.append(vuln_result)
+                    
+                    # Merge all vulnerabilities into ONE grouped turn result
+                    grouped = runner.merge_turn_with_vulnerabilities(attack_result, vuln_results, attack_profile)
+                    all_results.append(grouped)
+                    
+                    # Stream the grouped turn result
+                    yield f"data: {json.dumps({'type': 'turn', 'data': grouped}, default=str)}\n\n"
                 else:
-                    # No vulnerability profiles, just add attack result
-                    merged = runner.merge_results(attack_result, {}, attack_profile, None)
-                    all_results.append(merged)
-                    yield f"data: {json.dumps({'type': 'turn', 'data': merged}, default=str)}\n\n"
+                    # No vulnerability profiles, create grouped result with empty vuln list
+                    grouped = runner.merge_turn_with_vulnerabilities(attack_result, [], attack_profile)
+                    all_results.append(grouped)
+                    yield f"data: {json.dumps({'type': 'turn', 'data': grouped}, default=str)}\n\n"
         
         # Step 5: Generate summary
         yield f"data: {json.dumps({'type': 'step', 'step': 'summarizing', 'message': 'Generating summary...'})}\n\n"
         
         summary = {
-            "total_tests": len(all_results),
+            "total_turns": len(all_results),
+            "total_vulnerability_checks": sum(len(r.get("vulnerability_evaluations", [])) for r in all_results),
             "critical_count": sum(1 for r in all_results if "CRITICAL" in r.get("overall_result", "")),
             "high_count": sum(1 for r in all_results if "HIGH" in r.get("overall_result", "")),
             "medium_count": sum(1 for r in all_results if "MEDIUM" in r.get("overall_result", "")),
             "pass_count": sum(1 for r in all_results if "PASS" in r.get("overall_result", "")),
-            "jailbreak_success_count": sum(1 for r in all_results if r.get("jailbreak_result") == "Success"),
-            "vulnerability_count": sum(1 for r in all_results if r.get("vulnerability_detected", False))
+            "attack_success_count": sum(1 for r in all_results if any(k.endswith("_result") and r.get("attack_result", {}).get(k) == "Success" for k in r.get("attack_result", {}).keys())),
+            "vulnerability_count": sum(1 for r in all_results for ve in r.get("vulnerability_evaluations", []) if ve.get("vulnerability_detected"))
         }
         yield f"data: {json.dumps({'type': 'summary', 'data': summary})}\n\n"
         
