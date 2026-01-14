@@ -491,6 +491,7 @@ class RedTeamV2:
             "detected_pii_types": eval_result.get("detected_pii_types", []),
             "pii_parameters_used": eval_result.get("pii_parameters_used", False),
             "evaluation_method": eval_result.get("evaluation_method", "pii_leakage"),
+            "llm_calls_made": eval_result.get("llm_calls_made", 0),
         })
         
         # Map detected types back to configured parameters with sensitivity
@@ -531,6 +532,7 @@ class RedTeamV2:
             "bola_patterns_found": eval_result.get("bola_patterns", {}),
             "bola_keywords_found": eval_result.get("bola_keywords", []),
             "evaluation_method": "bola",
+            "llm_calls_made": eval_result.get("llm_calls_made", 0),
         })
         
         return result
@@ -559,6 +561,7 @@ class RedTeamV2:
             "leaked_patterns": eval_result.get("prompt_patterns", {}),
             "leaked_keywords": eval_result.get("prompt_keywords", []),
             "evaluation_method": "prompt_leakage",
+            "llm_calls_made": eval_result.get("llm_calls_made", 0),
         })
         
         return result
