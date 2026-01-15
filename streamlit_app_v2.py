@@ -550,8 +550,12 @@ def run_sync_test(payload):
                 progress_bar.progress(100)
                 status_msg.success(f"Campaign '{data.get('suite_name', 'Unnamed')}' Finished!")
                 
-                # Use API summary if available, otherwise use calculated values
-                if api_summary:
+                # Debug: Log the api_summary to see what we're getting
+                log_container.write(f"📊 API Summary: {api_summary}")
+                
+                # Use API summary if available AND has the keys we need
+                if api_summary and ('total_turns' in api_summary or 'total_tests' in api_summary):
+                    log_container.write("✅ Using API summary values")
                     # API summary uses different field names - map them correctly
                     final_total = api_summary.get('total_turns') or api_summary.get('total_tests', total_tests)
                     final_critical = api_summary.get('critical_count', critical_cnt)
@@ -564,6 +568,7 @@ def run_sync_test(payload):
                     # Use pre-calculated rate if available
                     attack_success_rate = api_summary.get('attack_success_rate_pct', None)
                 else:
+                    log_container.write("⚠️ Using calculated values (API summary empty or missing keys)")
                     final_total = total_tests
                     final_critical = critical_cnt
                     final_high = high_cnt
@@ -572,6 +577,9 @@ def run_sync_test(payload):
                     final_vuln = vuln_detected_count
                     final_attack_success = attack_success_count
                     attack_success_rate = None
+                
+                # Debug: Log final values
+                log_container.write(f"📈 Final values - Total: {final_total}, Attacks: {final_attack_success}, High: {final_high}, Pass: {final_pass}")
                 
                 # Calculate rates if not provided by API
                 if attack_success_rate is None:
