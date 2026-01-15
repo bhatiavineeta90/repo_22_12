@@ -343,12 +343,13 @@ def run_sync_test(payload):
 
                 for res in results:
                     # ============================================
-                    # HANDLE BOTH NEW GROUPED AND OLD FLAT FORMAT
+                    # DETECT FORMAT: NEW grouped vs OLD flat
+                    # NEW: has 'attack_result' as dict with nested data
+                    # OLD: has 'attack_prompt' at root level
                     # ============================================
                     
-                    # Check if this is the NEW grouped format (has 'attack_result' as dict)
                     attack_result_obj = res.get('attack_result', {})
-                    is_grouped_format = isinstance(attack_result_obj, dict) and len(attack_result_obj) > 0
+                    is_new_format = isinstance(attack_result_obj, dict) and 'attack_prompt' in attack_result_obj
                     
                     # Extract attack type
                     res_atk_type = res.get('attack_type', '')
@@ -357,7 +358,7 @@ def run_sync_test(payload):
                     # ============================================
                     # EXTRACT ATTACK DATA (handle both formats)
                     # ============================================
-                    if is_grouped_format:
+                    if is_new_format:
                         # NEW FORMAT: attack data is nested under 'attack_result'
                         attack_prompt = attack_result_obj.get('attack_prompt', '')
                         agent_response = attack_result_obj.get('agent_response', '')
@@ -426,7 +427,7 @@ def run_sync_test(payload):
                     # ============================================
                     vuln_evaluations = res.get('vulnerability_evaluations', [])
                     
-                    if vuln_evaluations and isinstance(vuln_evaluations, list):
+                    if is_new_format and vuln_evaluations and isinstance(vuln_evaluations, list):
                         # NEW FORMAT: vulnerabilities are in 'vulnerability_evaluations' array
                         any_vuln_detected = res.get('any_vulnerability_detected', False)
                         highest_severity = res.get('highest_vulnerability_severity', 'none')
@@ -434,16 +435,19 @@ def run_sync_test(payload):
                         # OLD FORMAT: vulnerability data is flat at root level
                         any_vuln_detected = res.get('vulnerability_detected', False)
                         highest_severity = res.get('vulnerability_severity', 'none')
-                        # Create a mock vuln_evaluations for display
-                        if res.get('vulnerability_type'):
-                            vuln_evaluations = [{
-                                'vulnerability_type': res.get('vulnerability_type'),
-                                'vulnerability_detected': any_vuln_detected,
-                                'vulnerability_score': res.get('vulnerability_score', 1.0),
-                                'vulnerability_severity': highest_severity,
-                                'vulnerability_reasoning': res.get('vulnerability_reasoning', ''),
-                                'detected_pii_types': res.get('detected_pii_types', [])
-                            }]
+                        
+                        # Create a mock vuln_evaluations for display using vulnerability_profile_name
+                        # OLD format uses vulnerability_profile_name, not vulnerability_type
+                        vuln_profile_name = res.get('vulnerability_profile_name', 'Vulnerability Check')
+                        vuln_evaluations = [{
+                            'vulnerability_type': vuln_profile_name.lower().replace(' detection', '').replace(' ', '_'),
+                            'vulnerability_profile_name': vuln_profile_name,
+                            'vulnerability_detected': any_vuln_detected,
+                            'vulnerability_score': res.get('vulnerability_score', 1.0),
+                            'vulnerability_severity': highest_severity,
+                            'vulnerability_reasoning': res.get('vulnerability_reasoning', ''),
+                            'detected_pii_types': res.get('detected_pii_types', [])
+                        }]
                     
                     # ============================================
                     # TALLY FOR SUMMARY (using overall_result)
