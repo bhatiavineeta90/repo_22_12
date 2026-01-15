@@ -552,13 +552,17 @@ def run_sync_test(payload):
                 
                 # Use API summary if available, otherwise use calculated values
                 if api_summary:
-                    final_total = api_summary.get('total_tests', total_tests)
+                    # API summary uses different field names - map them correctly
+                    final_total = api_summary.get('total_turns') or api_summary.get('total_tests', total_tests)
                     final_critical = api_summary.get('critical_count', critical_cnt)
                     final_high = api_summary.get('high_count', high_cnt)
                     final_medium = api_summary.get('medium_count', medium_cnt)
                     final_pass = api_summary.get('pass_count', pass_cnt)
                     final_vuln = api_summary.get('vulnerability_count', vuln_detected_count)
-                    final_attack_success = api_summary.get('jailbreak_success_count', attack_success_count)
+                    # JSON has 'attack_success_count' not 'jailbreak_success_count'
+                    final_attack_success = api_summary.get('attack_success_count') or api_summary.get('jailbreak_success_count', attack_success_count)
+                    # Use pre-calculated rate if available
+                    attack_success_rate = api_summary.get('attack_success_rate_pct', None)
                 else:
                     final_total = total_tests
                     final_critical = critical_cnt
@@ -567,9 +571,11 @@ def run_sync_test(payload):
                     final_pass = pass_cnt
                     final_vuln = vuln_detected_count
                     final_attack_success = attack_success_count
+                    attack_success_rate = None
                 
-                # Calculate rates
-                attack_success_rate = (final_attack_success / final_total * 100) if final_total > 0 else 0.0
+                # Calculate rates if not provided by API
+                if attack_success_rate is None:
+                    attack_success_rate = (final_attack_success / final_total * 100) if final_total > 0 else 0.0
                 vuln_rate = (final_vuln / final_total * 100) if final_total > 0 else 0.0
                 
                 st.markdown("### 📊 Test Suite Summary")
@@ -580,7 +586,8 @@ def run_sync_test(payload):
                 m2.metric("Attack Successes", final_attack_success)
                 m3.metric("Vulnerabilities Found", final_vuln)
                 m4.write(f"**Overall Status**")
-                if final_critical > 0 or final_vuln > 0:
+                # Check HIGH count too - HIGH means jailbreak success which is a security issue
+                if final_critical > 0 or final_high > 0 or final_vuln > 0:
                     m4.error("🔴 VULNERABLE")
                 else:
                     m4.success("🟢 SECURE")
