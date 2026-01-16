@@ -550,12 +550,23 @@ def run_sync_test(payload):
                 progress_bar.progress(100)
                 status_msg.success(f"Campaign '{data.get('suite_name', 'Unnamed')}' Finished!")
                 
+                # Debug: Log calculated values from loop
+                log_container.write("="*50)
+                log_container.write("🧮 CALCULATED VALUES FROM LOOP:")
+                log_container.write(f"  Total: {total_tests}")
+                log_container.write(f"  Attack Success: {attack_success_count}")
+                log_container.write(f"  Critical: {critical_cnt}, High: {high_cnt}, Medium: {medium_cnt}, Pass: {pass_cnt}")
+                log_container.write(f"  Vulnerabilities: {vuln_detected_count}")
+                log_container.write("="*50)
+                
                 # Debug: Log the api_summary to see what we're getting
-                log_container.write(f"📊 API Summary: {api_summary}")
+                log_container.write("📊 API SUMMARY RECEIVED:")
+                log_container.write(f"  {api_summary}")
+                log_container.write("="*50)
                 
                 # Use API summary if available AND has the keys we need
                 if api_summary and ('total_turns' in api_summary or 'total_tests' in api_summary):
-                    log_container.write("✅ Using API summary values")
+                    log_container.write("✅ USING API SUMMARY VALUES")
                     # API summary uses different field names - map them correctly
                     # Use explicit key checks instead of 'or' to handle 0 values correctly
                     if 'total_turns' in api_summary:
@@ -583,7 +594,7 @@ def run_sync_test(payload):
                     # Use pre-calculated rate if available (also handle 0.0 correctly)
                     attack_success_rate = api_summary.get('attack_success_rate_pct') if 'attack_success_rate_pct' in api_summary else None
                 else:
-                    log_container.write("⚠️ Using calculated values (API summary empty or missing keys)")
+                    log_container.write("⚠️ USING CALCULATED VALUES (API summary empty or missing keys)")
                     final_total = total_tests
                     final_critical = critical_cnt
                     final_high = high_cnt
@@ -593,8 +604,15 @@ def run_sync_test(payload):
                     final_attack_success = attack_success_count
                     attack_success_rate = None
                 
-                # Debug: Log final values
-                log_container.write(f"📈 Final values - Total: {final_total}, Attacks: {final_attack_success}, High: {final_high}, Pass: {final_pass}")
+                # Debug: Log final values that will be displayed
+                log_container.write("="*50)
+                log_container.write("📈 FINAL DISPLAY VALUES:")
+                log_container.write(f"  Total: {final_total}")
+                log_container.write(f"  Attack Success: {final_attack_success}")
+                log_container.write(f"  Critical: {final_critical}, High: {final_high}, Medium: {final_medium}, Pass: {final_pass}")
+                log_container.write(f"  Vulnerabilities: {final_vuln}")
+                log_container.write(f"  Attack Success Rate: {attack_success_rate}")
+                log_container.write("="*50)
                 
                 # Calculate rates if not provided by API
                 if attack_success_rate is None:
