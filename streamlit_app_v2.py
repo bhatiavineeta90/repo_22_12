@@ -557,16 +557,31 @@ def run_sync_test(payload):
                 if api_summary and ('total_turns' in api_summary or 'total_tests' in api_summary):
                     log_container.write("✅ Using API summary values")
                     # API summary uses different field names - map them correctly
-                    final_total = api_summary.get('total_turns') or api_summary.get('total_tests', total_tests)
+                    # Use explicit key checks instead of 'or' to handle 0 values correctly
+                    if 'total_turns' in api_summary:
+                        final_total = api_summary['total_turns']
+                    elif 'total_tests' in api_summary:
+                        final_total = api_summary['total_tests']
+                    else:
+                        final_total = total_tests
+                    
                     final_critical = api_summary.get('critical_count', critical_cnt)
                     final_high = api_summary.get('high_count', high_cnt)
                     final_medium = api_summary.get('medium_count', medium_cnt)
                     final_pass = api_summary.get('pass_count', pass_cnt)
                     final_vuln = api_summary.get('vulnerability_count', vuln_detected_count)
+                    
                     # JSON has 'attack_success_count' not 'jailbreak_success_count'
-                    final_attack_success = api_summary.get('attack_success_count') or api_summary.get('jailbreak_success_count', attack_success_count)
-                    # Use pre-calculated rate if available
-                    attack_success_rate = api_summary.get('attack_success_rate_pct', None)
+                    # Use explicit None check instead of 'or' to handle 0 values correctly
+                    if 'attack_success_count' in api_summary:
+                        final_attack_success = api_summary['attack_success_count']
+                    elif 'jailbreak_success_count' in api_summary:
+                        final_attack_success = api_summary['jailbreak_success_count']
+                    else:
+                        final_attack_success = attack_success_count
+                    
+                    # Use pre-calculated rate if available (also handle 0.0 correctly)
+                    attack_success_rate = api_summary.get('attack_success_rate_pct') if 'attack_success_rate_pct' in api_summary else None
                 else:
                     log_container.write("⚠️ Using calculated values (API summary empty or missing keys)")
                     final_total = total_tests
