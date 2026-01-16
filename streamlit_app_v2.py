@@ -544,43 +544,39 @@ def run_sync_test(payload):
                         
                         st.divider()
                 
-                # Update Summary - use API summary directly
+                # Update Summary - use calculated values for accuracy
                 api_summary = data.get('summary', {})
                 st.session_state.current_run_summary = api_summary
                 progress_bar.progress(100)
                 status_msg.success(f"Campaign '{data.get('suite_name', 'Unnamed')}' Finished!")
                 
-                # Debug: Log the api_summary
+                # Debug: Log both calculated and API values
+                log_container.write("="*50)
+                log_container.write("🧮 CALCULATED VALUES FROM RESULTS:")
+                log_container.write(f"  Total: {total_tests}")
+                log_container.write(f"  Attack Successes: {attack_success_count}")
+                log_container.write(f"  Vulnerabilities: {vuln_detected_count}")
+                log_container.write(f"  Critical: {critical_cnt}, High: {high_cnt}, Medium: {medium_cnt}, Pass: {pass_cnt}")
                 log_container.write("="*50)
                 log_container.write("📊 API SUMMARY RECEIVED:")
                 log_container.write(f"{json.dumps(api_summary, indent=2)}")
                 log_container.write("="*50)
                 
-                # Use API summary values DIRECTLY - no fallbacks to calculated values
-                if api_summary:
-                    log_container.write("✅ Using API summary values directly")
-                    final_total = api_summary.get('total_turns', 0)
-                    final_critical = api_summary.get('critical_count', 0)
-                    final_high = api_summary.get('high_count', 0)
-                    final_medium = api_summary.get('medium_count', 0)
-                    final_pass = api_summary.get('pass_count', 0)
-                    final_vuln = api_summary.get('vulnerability_count', 0)
-                    final_attack_success = api_summary.get('attack_success_count', 0)
-                    attack_success_rate = api_summary.get('attack_success_rate_pct', 0.0)
-                    total_llm_calls = api_summary.get('total_llm_calls', 0)
-                else:
-                    log_container.write("⚠️ No API summary - using zeros")
-                    final_total = 0
-                    final_critical = 0
-                    final_high = 0
-                    final_medium = 0
-                    final_pass = 0
-                    final_vuln = 0
-                    final_attack_success = 0
-                    attack_success_rate = 0.0
-                    total_llm_calls = 0
+                # Use CALCULATED values from results for attack success and vulnerabilities
+                # Use API summary for totals and rates (if available)
+                log_container.write("✅ Using CALCULATED values for attack/vuln counts, API for totals")
                 
-                # Calculate vulnerability rate
+                final_total = api_summary.get('total_turns', total_tests) if api_summary else total_tests
+                final_critical = critical_cnt
+                final_high = high_cnt
+                final_medium = medium_cnt
+                final_pass = pass_cnt
+                final_vuln = vuln_detected_count  # Use calculated value
+                final_attack_success = attack_success_count  # Use calculated value
+                total_llm_calls = api_summary.get('total_llm_calls', sum(r.get('llm_calls_total_turn', 0) for r in results)) if api_summary else sum(r.get('llm_calls_total_turn', 0) for r in results)
+                
+                # Calculate rates from actual values
+                attack_success_rate = (final_attack_success / final_total * 100) if final_total > 0 else 0.0
                 vuln_rate = (final_vuln / final_total * 100) if final_total > 0 else 0.0
                 
                 st.markdown("### 📊 Test Suite Summary")
