@@ -77,7 +77,7 @@ def render_create_test():
     with st.expander("⚙️LLM Setting", expanded=False):
         c1, c2, c3 = st.columns(3)
         with c1:
-            llm_provider = st.selectbox("LLM Provider", ["gemini", "azure_openai", "openai"])
+            llm_provider = st.selectbox("LLM Provider", ["azure_openai", "gemini", "openai"], index=0)
             temp = st.slider("Temperature", 0.0, 2.0, 0.7)
         with c2:
             record_transcript = st.checkbox("Record Transcript", value=True)
@@ -544,79 +544,43 @@ def run_sync_test(payload):
                         
                         st.divider()
                 
-                # Update Summary - prefer API summary if available
+                # Update Summary - use API summary directly
                 api_summary = data.get('summary', {})
                 st.session_state.current_run_summary = api_summary
                 progress_bar.progress(100)
                 status_msg.success(f"Campaign '{data.get('suite_name', 'Unnamed')}' Finished!")
                 
-                # Debug: Log calculated values from loop
+                # Debug: Log the api_summary
                 log_container.write("="*50)
-                log_container.write("🧮 CALCULATED VALUES FROM LOOP:")
-                log_container.write(f"  Total: {total_tests}")
-                log_container.write(f"  Attack Success: {attack_success_count}")
-                log_container.write(f"  Critical: {critical_cnt}, High: {high_cnt}, Medium: {medium_cnt}, Pass: {pass_cnt}")
-                log_container.write(f"  Vulnerabilities: {vuln_detected_count}")
-                log_container.write("="*50)
-                
-                # Debug: Log the api_summary to see what we're getting
                 log_container.write("📊 API SUMMARY RECEIVED:")
-                log_container.write(f"  {api_summary}")
+                log_container.write(f"{json.dumps(api_summary, indent=2)}")
                 log_container.write("="*50)
                 
-                # Use API summary if available AND has the keys we need
-                if api_summary and ('total_turns' in api_summary or 'total_tests' in api_summary):
-                    log_container.write("✅ USING API SUMMARY VALUES")
-                    # API summary uses different field names - map them correctly
-                    # Use explicit key checks instead of 'or' to handle 0 values correctly
-                    if 'total_turns' in api_summary:
-                        final_total = api_summary['total_turns']
-                    elif 'total_tests' in api_summary:
-                        final_total = api_summary['total_tests']
-                    else:
-                        final_total = total_tests
-                    
-                    final_critical = api_summary.get('critical_count', critical_cnt)
-                    final_high = api_summary.get('high_count', high_cnt)
-                    final_medium = api_summary.get('medium_count', medium_cnt)
-                    final_pass = api_summary.get('pass_count', pass_cnt)
-                    final_vuln = api_summary.get('vulnerability_count', vuln_detected_count)
-                    
-                    # JSON has 'attack_success_count' not 'jailbreak_success_count'
-                    # Use explicit None check instead of 'or' to handle 0 values correctly
-                    if 'attack_success_count' in api_summary:
-                        final_attack_success = api_summary['attack_success_count']
-                    elif 'jailbreak_success_count' in api_summary:
-                        final_attack_success = api_summary['jailbreak_success_count']
-                    else:
-                        final_attack_success = attack_success_count
-                    
-                    # Use pre-calculated rate if available (also handle 0.0 correctly)
-                    attack_success_rate = api_summary.get('attack_success_rate_pct') if 'attack_success_rate_pct' in api_summary else None
+                # Use API summary values DIRECTLY - no fallbacks to calculated values
+                if api_summary:
+                    log_container.write("✅ Using API summary values directly")
+                    final_total = api_summary.get('total_turns', 0)
+                    final_critical = api_summary.get('critical_count', 0)
+                    final_high = api_summary.get('high_count', 0)
+                    final_medium = api_summary.get('medium_count', 0)
+                    final_pass = api_summary.get('pass_count', 0)
+                    final_vuln = api_summary.get('vulnerability_count', 0)
+                    final_attack_success = api_summary.get('attack_success_count', 0)
+                    attack_success_rate = api_summary.get('attack_success_rate_pct', 0.0)
+                    total_llm_calls = api_summary.get('total_llm_calls', 0)
                 else:
-                    log_container.write("⚠️ USING CALCULATED VALUES (API summary empty or missing keys)")
-                    final_total = total_tests
-                    final_critical = critical_cnt
-                    final_high = high_cnt
-                    final_medium = medium_cnt
-                    final_pass = pass_cnt
-                    final_vuln = vuln_detected_count
-                    final_attack_success = attack_success_count
-                    attack_success_rate = None
+                    log_container.write("⚠️ No API summary - using zeros")
+                    final_total = 0
+                    final_critical = 0
+                    final_high = 0
+                    final_medium = 0
+                    final_pass = 0
+                    final_vuln = 0
+                    final_attack_success = 0
+                    attack_success_rate = 0.0
+                    total_llm_calls = 0
                 
-                # Debug: Log final values that will be displayed
-                log_container.write("="*50)
-                log_container.write("📈 FINAL DISPLAY VALUES:")
-                log_container.write(f"  Total: {final_total}")
-                log_container.write(f"  Attack Success: {final_attack_success}")
-                log_container.write(f"  Critical: {final_critical}, High: {final_high}, Medium: {final_medium}, Pass: {final_pass}")
-                log_container.write(f"  Vulnerabilities: {final_vuln}")
-                log_container.write(f"  Attack Success Rate: {attack_success_rate}")
-                log_container.write("="*50)
-                
-                # Calculate rates if not provided by API
-                if attack_success_rate is None:
-                    attack_success_rate = (final_attack_success / final_total * 100) if final_total > 0 else 0.0
+                # Calculate vulnerability rate
                 vuln_rate = (final_vuln / final_total * 100) if final_total > 0 else 0.0
                 
                 st.markdown("### 📊 Test Suite Summary")
@@ -653,9 +617,6 @@ def run_sync_test(payload):
                 inf1, inf2, inf3 = st.columns(3)
                 inf1.write(f"**Run ID:** `{data.get('run_id')}`")
                 inf2.write(f"**LLM Model:** `{payload['payload']['mode_constraints']['llm']}`")
-                
-                # Calculate actual LLM calls from results if available
-                total_llm_calls = sum(r.get('llm_calls_total_turn', 2) for r in results)
                 inf3.write(f"**Total LLM Calls:** `{total_llm_calls}`")
 
         else:
