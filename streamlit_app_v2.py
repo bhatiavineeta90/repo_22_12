@@ -633,7 +633,278 @@ def render_history():
     if st.button("Load Report"):
         details = get_result_details(selected_run)
         if details:
-            st.json(details)
+            render_historical_result(details)
+
+def render_historical_result(data):
+    """Render historical result with same UI as live execution"""
+    st.divider()
+    st.subheader(f"📋 Report: {data.get('suite_name', 'Unnamed Suite')}")
+    
+    results = data.get('results', [])
+    
+    if not results:
+        st.warning("No turn results found in this report.")
+        st.json(data)
+        return
+    
+    # Metrics for Summary
+    total_tests = len(results)
+    critical_cnt = 0
+    high_cnt = 0
+    medium_cnt = 0
+    pass_cnt = 0
+    vuln_detected_count = 0
+    attack_success_count = 0
+
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        st.caption("📊 Summary Metrics")
+        summary_container = st.container(height=500)
+    with col2:
+        st.caption("📝 Detailed Turn Results")
+        results_container = st.container(height=500)
+
+    for res in results:
+        # ============================================
+        # DETECT FORMAT: NEW grouped vs OLD flat
+        # ============================================
+        attack_result_obj = res.get('attack_result', {})
+        is_new_format = isinstance(attack_result_obj, dict) and 'attack_prompt' in attack_result_obj
+        
+        # Extract attack type
+        res_atk_type = res.get('attack_type', '')
+        atk_label = res_atk_type.replace('_', ' ').title()
+        
+        # ============================================
+        # EXTRACT ATTACK DATA (handle both formats)
+        # ============================================
+        if is_new_format:
+            attack_prompt = attack_result_obj.get('attack_prompt', '')
+            agent_response = attack_result_obj.get('agent_response', '')
+            
+            score_keys = {
+                "prompt_injection": "prompt_injection_score",
+                "linear_jailbreaking": "jailbreak_score",
+                "bad_likert_judge": "likert_judge_score",
+                "crescendo": "crescendo_score"
+            }
+            score_key = score_keys.get(res_atk_type, "jailbreak_score")
+            raw_score = attack_result_obj.get(score_key) or attack_result_obj.get('score', 0)
+            
+            result_keys = {
+                "prompt_injection": "prompt_injection_result",
+                "linear_jailbreaking": "jailbreak_result",
+                "bad_likert_judge": "likert_judge_result",
+                "crescendo": "crescendo_result"
+            }
+            result_key = result_keys.get(res_atk_type, "jailbreak_result")
+            attack_result_status = attack_result_obj.get(result_key, "Unknown")
+            
+            reasoning_keys = {
+                "prompt_injection": "prompt_injection_reasoning",
+                "linear_jailbreaking": "jailbreak_reasoning",
+                "bad_likert_judge": "likert_judge_reasoning",
+                "crescendo": "crescendo_reasoning"
+            }
+            reasoning_key = reasoning_keys.get(res_atk_type, "jailbreak_reasoning")
+            attack_reasoning = attack_result_obj.get(reasoning_key, '')
+        else:
+            attack_prompt = res.get('attack_prompt', '')
+            agent_response = res.get('agent_response', '')
+            
+            score_keys = {
+                "prompt_injection": "prompt_injection_score",
+                "linear_jailbreaking": "jailbreak_score",
+                "bad_likert_judge": "likert_judge_score",
+                "crescendo": "crescendo_score"
+            }
+            score_key = score_keys.get(res_atk_type, "jailbreak_score")
+            raw_score = res.get(score_key) or res.get('score', 0)
+            
+            result_keys = {
+                "prompt_injection": "prompt_injection_result",
+                "linear_jailbreaking": "jailbreak_result",
+                "bad_likert_judge": "likert_judge_result",
+                "crescendo": "crescendo_result"
+            }
+            result_key = result_keys.get(res_atk_type, "jailbreak_result")
+            attack_result_status = res.get(result_key, "Unknown")
+            attack_reasoning = res.get('jailbreak_reasoning', '') or res.get('reasoning', '')
+        
+        score_display = float(raw_score) if raw_score is not None else 0.0
+        
+        # Check if attack succeeded
+        if attack_result_status == "Success":
+            attack_success_count += 1
+        
+        # ============================================
+        # EXTRACT VULNERABILITY DATA
+        # ============================================
+        vuln_evaluations = res.get('vulnerability_evaluations', [])
+        
+        if is_new_format and vuln_evaluations and isinstance(vuln_evaluations, list):
+            any_vuln_detected = res.get('any_vulnerability_detected', False)
+            highest_severity = res.get('highest_vulnerability_severity', 'none')
+        else:
+            any_vuln_detected = res.get('vulnerability_detected', False)
+            highest_severity = res.get('vulnerability_severity', 'none')
+            
+            vuln_profile_name = res.get('vulnerability_profile_name', 'Vulnerability Check')
+            vuln_evaluations = [{
+                'vulnerability_type': vuln_profile_name.lower().replace(' detection', '').replace(' ', '_'),
+                'vulnerability_profile_name': vuln_profile_name,
+                'vulnerability_detected': any_vuln_detected,
+                'vulnerability_score': res.get('vulnerability_score', 1.0),
+                'vulnerability_severity': highest_severity,
+                'vulnerability_reasoning': res.get('vulnerability_reasoning', ''),
+                'detected_pii_types': res.get('detected_pii_types', [])
+            }]
+        
+        # ============================================
+        # TALLY FOR SUMMARY
+        # ============================================
+        overall_result = res.get('overall_result', '')
+        
+        if 'CRITICAL' in overall_result:
+            critical_cnt += 1
+            vuln_detected_count += 1
+        elif 'HIGH' in overall_result:
+            high_cnt += 1
+            if any_vuln_detected:
+                vuln_detected_count += 1
+        elif 'MEDIUM' in overall_result:
+            medium_cnt += 1
+            vuln_detected_count += 1
+        else:
+            pass_cnt += 1
+
+        # ============================================
+        # RENDER TURN RESULT
+        # ============================================
+        with results_container:
+            color = "#ff4b4b" if any_vuln_detected or 'CRITICAL' in overall_result or 'HIGH' in overall_result else "#28a745"
+            
+            vuln_labels = []
+            for ve in vuln_evaluations:
+                vt = ve.get('vulnerability_type', 'Unknown')
+                vuln_labels.append(vt.replace('_', ' ').title())
+            vuln_label = ", ".join(vuln_labels) if vuln_labels else "All Vulnerabilities"
+            
+            st.markdown(f"""
+            <div style="border-left: 5px solid {color}; padding: 15px; background-color: rgba(0,0,0,0.02); border-radius: 5px; margin-bottom: 20px;">
+                <h4 style="margin:0;">Turn {res.get('turn')} | {atk_label}</h4>
+                <p style="color:gray; font-size: 0.8em; margin-bottom: 10px;">Vulnerabilities Checked: <b>{vuln_label}</b></p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("**User / Attack Prompt:**")
+            st.info(attack_prompt)
+
+            st.markdown("**Agent Response:**")
+            st.write(agent_response)
+
+            if attack_reasoning:
+                st.markdown("**Attack Reasoning:**")
+                st.caption(attack_reasoning)
+
+            c_a, c_b, c_c = st.columns(3)
+            c_a.write(f"**Overall Result:** `{overall_result}`")
+            c_b.write(f"**Attack Score:** `{score_display}/10`")
+            c_c.write(f"**Attack Status:** `{attack_result_status}`")
+            
+            # ============================================
+            # DISPLAY EACH VULNERABILITY EVALUATION
+            # ============================================
+            if vuln_evaluations:
+                st.markdown("---")
+                st.markdown("**🛡️ Vulnerability Evaluations:**")
+                
+                for ve in vuln_evaluations:
+                    vtype = ve.get('vulnerability_type', 'unknown').replace('_', ' ').title()
+                    vdetected = ve.get('vulnerability_detected', False)
+                    vseverity = ve.get('vulnerability_severity', 'none')
+                    vscore = ve.get('vulnerability_score', 1.0)
+                    vreasoning = ve.get('vulnerability_reasoning', '')
+                    detected_issues = ve.get('detected_issues', [])
+                    detected_pii = ve.get('detected_pii_types', [])
+                    
+                    v_color = "🔴" if vdetected else "🟢"
+                    v_status = "DETECTED" if vdetected else "SAFE"
+                    
+                    with st.expander(f"{v_color} {vtype}: {v_status} (Severity: {vseverity})"):
+                        st.write(f"**Score:** {vscore}")
+                        st.write(f"**Reasoning:** {vreasoning}")
+                        
+                        if detected_issues:
+                            st.write("**Detected Issues:**")
+                            for issue in detected_issues:
+                                st.write(f"  - {issue.get('id', 'unknown')}: `{issue.get('value', 'N/A')}` (sensitivity: {issue.get('sensitivity', 'N/A')})")
+                        
+                        if detected_pii:
+                            st.write(f"**Detected PII Types:** {', '.join(detected_pii)}")
+            
+            if res.get('tool_calls'):
+                with st.expander("🔧 View Agent Tool Calls"):
+                    st.json(res['tool_calls'])
+
+            with st.expander("📄 View Raw Turn JSON"):
+                st.json(res)
+            
+            st.divider()
+    
+    # ============================================
+    # RENDER SUMMARY
+    # ============================================
+    api_summary = data.get('summary', {})
+    
+    final_total = api_summary.get('total_turns', total_tests) if api_summary else total_tests
+    final_critical = critical_cnt
+    final_high = high_cnt
+    final_medium = medium_cnt
+    final_pass = pass_cnt
+    final_vuln = vuln_detected_count
+    final_attack_success = attack_success_count
+    total_llm_calls = api_summary.get('total_llm_calls', sum(r.get('llm_calls_total_turn', 0) for r in results)) if api_summary else sum(r.get('llm_calls_total_turn', 0) for r in results)
+    
+    attack_success_rate = (final_attack_success / final_total * 100) if final_total > 0 else 0.0
+    vuln_rate = (final_vuln / final_total * 100) if final_total > 0 else 0.0
+    
+    with summary_container:
+        st.markdown("### 📊 Test Suite Summary")
+        
+        st.metric("Total Turns", final_total)
+        st.metric("Attack Successes", final_attack_success)
+        st.metric("Vulnerabilities Found", final_vuln)
+        
+        st.markdown("---")
+        
+        if final_critical > 0 or final_high > 0 or final_vuln > 0:
+            st.error("🔴 VULNERABLE")
+        else:
+            st.success("🟢 SECURE")
+        
+        st.markdown("---")
+        
+        st.metric("Attack Success Rate", f"{attack_success_rate:.1f}%")
+        st.metric("Vulnerability Rate", f"{vuln_rate:.1f}%")
+        st.metric("Pass Rate", f"{100 - attack_success_rate:.1f}%")
+        
+        st.markdown("---")
+        
+        st.markdown(f"**🔴 Critical:** {final_critical}")
+        st.markdown(f"**🟠 High:** {final_high}")
+        st.markdown(f"**🟡 Medium:** {final_medium}")
+        st.markdown(f"**🟢 Pass:** {final_pass}")
+        
+        st.markdown("---")
+        
+        st.write(f"**Run ID:** `{data.get('run_id')}`")
+        st.write(f"**Suite Name:** `{data.get('suite_name')}`")
+        st.write(f"**Total LLM Calls:** `{total_llm_calls}`")
+    
+    # Raw JSON expander outside containers
+    with st.expander("📄 View Full Raw JSON Response"):
+        st.json(data)
 
 def main():
     render_sidebar()
