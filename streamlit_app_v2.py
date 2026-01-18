@@ -650,74 +650,30 @@ def render_history():
     st.markdown("### 📋 Previous Test Runs")
     st.caption(f"Showing {start_idx + 1}-{end_idx} of {total_results} results")
     
-    # Colorful table header with CSS styling
-    st.markdown("""
-    <style>
-    .history-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 10px 0;
-        font-size: 14px;
-    }
-    .history-table th {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 12px 15px;
-        text-align: left;
-        font-weight: 600;
-        border: 1px solid #5a67d8;
-    }
-    .history-table td {
-        padding: 10px 15px;
-        border: 1px solid #e2e8f0;
-    }
-    .history-table tr:nth-child(even) {
-        background-color: #f7fafc;
-    }
-    .history-table tr:nth-child(odd) {
-        background-color: #ffffff;
-    }
-    .history-table tr:hover {
-        background-color: #edf2f7;
-    }
-    .run-id {
-        font-family: monospace;
-        color: #5a67d8;
-        font-weight: 500;
-    }
-    .suite-name {
-        color: #2d3748;
-        font-weight: 500;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Build table HTML
-    table_html = """
-    <table class="history-table">
-        <thead>
-            <tr>
-                <th style="width: 15%;">#</th>
-                <th style="width: 35%;">Run ID</th>
-                <th style="width: 50%;">Suite Name</th>
-            </tr>
-        </thead>
-        <tbody>
-    """
-    
+    # Build dataframe for display
+    table_data = []
     for i, r in enumerate(page_results):
         row_num = start_idx + i + 1
-        run_id_short = r['run_id'][:12] + "..."
-        table_html += f"""
-            <tr>
-                <td>{row_num}</td>
-                <td class="run-id">{run_id_short}</td>
-                <td class="suite-name">{r['suite_name']}</td>
-            </tr>
-        """
+        run_id_short = r['run_id'][:16] + "..."
+        table_data.append({
+            "#": row_num,
+            "Run ID": run_id_short,
+            "Suite Name": r['suite_name']
+        })
     
-    table_html += "</tbody></table>"
-    st.markdown(table_html, unsafe_allow_html=True)
+    df = pd.DataFrame(table_data)
+    
+    # Display styled dataframe
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "#": st.column_config.NumberColumn("#", width="small"),
+            "Run ID": st.column_config.TextColumn("Run ID", width="medium"),
+            "Suite Name": st.column_config.TextColumn("Suite Name", width="large"),
+        }
+    )
     
     # Select buttons row
     st.markdown("**Select a result to view:**")
