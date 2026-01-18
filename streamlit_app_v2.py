@@ -650,40 +650,26 @@ def render_history():
     st.markdown("### 📋 Previous Test Runs")
     st.caption(f"Showing {start_idx + 1}-{end_idx} of {total_results} results")
     
-    # Build dataframe for display
-    table_data = []
+    # Table header
+    header_cols = st.columns([1, 3, 4, 2])
+    header_cols[0].markdown("**#**")
+    header_cols[1].markdown("**Run ID**")
+    header_cols[2].markdown("**Suite Name**")
+    header_cols[3].markdown("**Action**")
+    
+    st.divider()
+    
+    # Table rows with Select buttons
     for i, r in enumerate(page_results):
         row_num = start_idx + i + 1
         run_id_short = r['run_id'][:16] + "..."
-        table_data.append({
-            "#": row_num,
-            "Run ID": run_id_short,
-            "Suite Name": r['suite_name']
-        })
-    
-    df = pd.DataFrame(table_data)
-    
-    # Display styled dataframe
-    st.dataframe(
-        df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "#": st.column_config.NumberColumn("#", width="small"),
-            "Run ID": st.column_config.TextColumn("Run ID", width="medium"),
-            "Suite Name": st.column_config.TextColumn("Suite Name", width="large"),
-        }
-    )
-    
-    # Select buttons row
-    st.markdown("**Select a result to view:**")
-    cols = st.columns(min(len(page_results), 5))
-    for i, r in enumerate(page_results):
-        col_idx = i % 5
-        with cols[col_idx]:
-            row_num = start_idx + i + 1
-            if st.button(f"#{row_num}", key=f"select_btn_{start_idx + i}", use_container_width=True):
-                st.session_state.selected_history_run = r['run_id']
+        
+        row_cols = st.columns([1, 3, 4, 2])
+        row_cols[0].write(f"{row_num}")
+        row_cols[1].code(run_id_short, language=None)
+        row_cols[2].write(r['suite_name'])
+        if row_cols[3].button("Select", key=f"select_btn_{start_idx + i}", use_container_width=True):
+            st.session_state.selected_history_run = r['run_id']
     
     # Pagination controls
     st.markdown("---")
