@@ -627,19 +627,29 @@ def render_history():
         st.info("No historical runs found.")
         return
     
-    # Create options with display names
-    run_options = {r['run_id']: f"{r['suite_name']} ({r['created_at']})" for r in results}
+    # Initialize session state for selected run
+    if 'selected_history_run' not in st.session_state:
+        st.session_state.selected_history_run = None
     
-    selected_run = st.selectbox(
-        "Select a Test Run to View",
-        options=list(run_options.keys()),
-        format_func=lambda x: run_options[x],
-        key="history_run_selector"
-    )
+    st.markdown("### 📋 Previous Test Runs")
     
-    # Auto-load the result when a run is selected
-    if selected_run:
-        details = get_result_details(selected_run)
+    # Create table with Select buttons
+    for i, r in enumerate(results):
+        col1, col2, col3, col4 = st.columns([2, 3, 2, 1])
+        
+        with col1:
+            st.write(f"**{r['run_id'][:8]}...**")
+        with col2:
+            st.write(r['suite_name'])
+        with col3:
+            st.write(r['created_at'])
+        with col4:
+            if st.button("Select", key=f"select_btn_{i}"):
+                st.session_state.selected_history_run = r['run_id']
+    
+    # Display selected result below the table
+    if st.session_state.selected_history_run:
+        details = get_result_details(st.session_state.selected_history_run)
         if details:
             render_historical_result(details)
 
