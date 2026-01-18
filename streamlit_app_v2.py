@@ -627,25 +627,134 @@ def render_history():
         st.info("No historical runs found.")
         return
     
-    # Initialize session state for selected run
+    # Initialize session state
     if 'selected_history_run' not in st.session_state:
         st.session_state.selected_history_run = None
+    if 'history_page' not in st.session_state:
+        st.session_state.history_page = 1
+    
+    # Pagination settings
+    RESULTS_PER_PAGE = 10
+    total_results = len(results)
+    total_pages = max(1, (total_results + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE)
+    
+    # Ensure current page is valid
+    if st.session_state.history_page > total_pages:
+        st.session_state.history_page = total_pages
+    
+    current_page = st.session_state.history_page
+    start_idx = (current_page - 1) * RESULTS_PER_PAGE
+    end_idx = min(start_idx + RESULTS_PER_PAGE, total_results)
+    page_results = results[start_idx:end_idx]
     
     st.markdown("### 📋 Previous Test Runs")
+    st.caption(f"Showing {start_idx + 1}-{end_idx} of {total_results} results")
     
-    # Create table with Select buttons
-    for i, r in enumerate(results):
-        col1, col2, col3, col4 = st.columns([2, 3, 2, 1])
-        
-        with col1:
-            st.write(f"**{r['run_id'][:8]}...**")
-        with col2:
-            st.write(r['suite_name'])
-        with col3:
-            st.write(r['created_at'])
-        with col4:
-            if st.button("Select", key=f"select_btn_{i}"):
+    # Colorful table header with CSS styling
+    st.markdown("""
+    <style>
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0;
+        font-size: 14px;
+    }
+    .history-table th {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 600;
+        border: 1px solid #5a67d8;
+    }
+    .history-table td {
+        padding: 10px 15px;
+        border: 1px solid #e2e8f0;
+    }
+    .history-table tr:nth-child(even) {
+        background-color: #f7fafc;
+    }
+    .history-table tr:nth-child(odd) {
+        background-color: #ffffff;
+    }
+    .history-table tr:hover {
+        background-color: #edf2f7;
+    }
+    .run-id {
+        font-family: monospace;
+        color: #5a67d8;
+        font-weight: 500;
+    }
+    .suite-name {
+        color: #2d3748;
+        font-weight: 500;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Build table HTML
+    table_html = """
+    <table class="history-table">
+        <thead>
+            <tr>
+                <th style="width: 15%;">#</th>
+                <th style="width: 35%;">Run ID</th>
+                <th style="width: 50%;">Suite Name</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
+    
+    for i, r in enumerate(page_results):
+        row_num = start_idx + i + 1
+        run_id_short = r['run_id'][:12] + "..."
+        table_html += f"""
+            <tr>
+                <td>{row_num}</td>
+                <td class="run-id">{run_id_short}</td>
+                <td class="suite-name">{r['suite_name']}</td>
+            </tr>
+        """
+    
+    table_html += "</tbody></table>"
+    st.markdown(table_html, unsafe_allow_html=True)
+    
+    # Select buttons row
+    st.markdown("**Select a result to view:**")
+    cols = st.columns(min(len(page_results), 5))
+    for i, r in enumerate(page_results):
+        col_idx = i % 5
+        with cols[col_idx]:
+            row_num = start_idx + i + 1
+            if st.button(f"#{row_num}", key=f"select_btn_{start_idx + i}", use_container_width=True):
                 st.session_state.selected_history_run = r['run_id']
+    
+    # Pagination controls
+    st.markdown("---")
+    st.markdown("**Pages:**")
+    
+    page_cols = st.columns(min(total_pages + 2, 12))
+    
+    # Previous button
+    with page_cols[0]:
+        if st.button("◀ Prev", disabled=(current_page == 1), key="prev_page"):
+            st.session_state.history_page = current_page - 1
+            st.rerun()
+    
+    # Page number buttons
+    for page_num in range(1, total_pages + 1):
+        if page_num < len(page_cols) - 1:
+            with page_cols[page_num]:
+                btn_type = "primary" if page_num == current_page else "secondary"
+                if st.button(str(page_num), key=f"page_{page_num}", type=btn_type):
+                    st.session_state.history_page = page_num
+                    st.rerun()
+    
+    # Next button
+    with page_cols[min(total_pages + 1, len(page_cols) - 1)]:
+        if st.button("Next ▶", disabled=(current_page == total_pages), key="next_page"):
+            st.session_state.history_page = current_page + 1
+            st.rerun()
     
     # Display selected result below the table
     if st.session_state.selected_history_run:
