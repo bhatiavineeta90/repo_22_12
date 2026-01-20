@@ -928,11 +928,20 @@ class RedTeamV2:
             
             # Save results
             if all_results:
+                # Calculate configured turns from all attack profiles
+                configured_turns = sum(
+                    ap.turn_config.turns for ap in self.payload.attack_profiles
+                )
+                
+                summary = self._generate_summary(all_results)
+                summary["configured_turns"] = configured_turns
+                
                 result_data = {
                     "run_id": run_id,
+                    "suite_name": self.payload.meta_data.name,  # Add suite_name at root level for UI
                     "payload": self.payload.model_dump(by_alias=True, mode='json'),
                     "results": all_results,
-                    "summary": self._generate_summary(all_results)
+                    "summary": summary
                 }
                 run_json_path = write_run_json(run_id, result_data)
                 csv_path = append_csv(all_results)
