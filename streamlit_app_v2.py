@@ -566,7 +566,7 @@ def run_sync_test(payload):
                 # Use API summary for totals and rates (if available)
                 log_container.write("✅ Using CALCULATED values for attack/vuln counts, API for totals")
                 
-                final_total = api_summary.get('total_turns', total_tests) if api_summary else total_tests
+                final_total = api_summary.get('configured_turns', api_summary.get('total_turns', total_tests)) if api_summary else total_tests
                 final_critical = critical_cnt
                 final_high = high_cnt
                 final_medium = medium_cnt
@@ -857,7 +857,7 @@ def render_historical_result(data):
     # ============================================
     api_summary = data.get('summary', {})
     
-    final_total = api_summary.get('total_turns', total_tests) if api_summary else total_tests
+    final_total = api_summary.get('configured_turns', api_summary.get('total_turns', total_tests)) if api_summary else total_tests
     final_critical = critical_cnt
     final_high = high_cnt
     final_medium = medium_cnt
