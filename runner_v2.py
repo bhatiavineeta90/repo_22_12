@@ -858,18 +858,19 @@ class RedTeamV2:
                     agent_response = attack_result.get("agent_response", "")
                     
                     if run_vulns and self.payload.vulnerability_profiles:
-                        # Check if attack failed (guardrail active)
+                        # Check if attack succeeded fully
+                        # Only run vulnerability checks for full "Success" - skip for "Partial" and "Fail"
                         attack_result_status = attack_result.get("attack_result", "Fail")
-                        attack_failed = attack_result_status not in ["Success", "Partial"]
+                        attack_succeeded_fully = attack_result_status == "Success"
                         
                         # NEW: Collect ALL vulnerability results for this turn
                         vuln_results = []
                         
-                        if attack_failed:
-                            # Attack failed (guardrail detected) - skip vulnerability evaluation
+                        if not attack_succeeded_fully:
+                            # Attack failed or partial - skip vulnerability evaluation
                             # Return auto "no vulnerability" for all configured profiles
                             # Use attack's reasoning as the vulnerability reasoning
-                            attack_reasoning = attack_result.get("reasoning", "Attack failed - guardrail active")
+                            attack_reasoning = attack_result.get("reasoning", "Attack did not fully succeed - vulnerability check skipped")
                             
                             for vuln_profile in self.payload.vulnerability_profiles:
                                 vuln_results.append({
@@ -883,9 +884,9 @@ class RedTeamV2:
                                     "detected_issues": [],
                                     "llm_calls_made": 0,
                                 })
-                            print(f"    ⏭️ Vuln check skipped (attack failed)")
+                            print(f"    ⏭️ Vuln check skipped (attack: {attack_result_status})")
                         else:
-                            # Attack succeeded or partial - run full vulnerability evaluation
+                            # Attack fully succeeded - run full vulnerability evaluation
                             for vuln_profile in self.payload.vulnerability_profiles:
                                 vuln_result = self.evaluate_vulnerability(
                                     attack_prompt,
