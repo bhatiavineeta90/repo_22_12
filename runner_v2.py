@@ -858,15 +858,41 @@ class RedTeamV2:
                     agent_response = attack_result.get("agent_response", "")
                     
                     if run_vulns and self.payload.vulnerability_profiles:
-                        # NEW: Collect ALL vulnerability results for this turn first
+                        # Check if attack failed (guardrail active)
+                        attack_result_status = attack_result.get("attack_result", "Fail")
+                        attack_failed = attack_result_status not in ["Success", "Partial"]
+                        
+                        # NEW: Collect ALL vulnerability results for this turn
                         vuln_results = []
-                        for vuln_profile in self.payload.vulnerability_profiles:
-                            vuln_result = self.evaluate_vulnerability(
-                                attack_prompt,
-                                agent_response,
-                                vuln_profile
-                            )
-                            vuln_results.append(vuln_result)
+                        
+                        if attack_failed:
+                            # Attack failed (guardrail detected) - skip vulnerability evaluation
+                            # Return auto "no vulnerability" for all configured profiles
+                            # Use attack's reasoning as the vulnerability reasoning
+                            attack_reasoning = attack_result.get("reasoning", "Attack failed - guardrail active")
+                            
+                            for vuln_profile in self.payload.vulnerability_profiles:
+                                vuln_results.append({
+                                    "vulnerability_profile_id": vuln_profile.id,
+                                    "vulnerability_profile_name": vuln_profile.name,
+                                    "vulnerability_type": vuln_profile.vulnerability_type.value,
+                                    "vulnerable": False,
+                                    "score": 1.0,
+                                    "severity": "none",
+                                    "reasoning": attack_reasoning,
+                                    "detected_issues": [],
+                                    "llm_calls_made": 0,
+                                })
+                            print(f"    ⏭️ Vuln check skipped (attack failed)")
+                        else:
+                            # Attack succeeded or partial - run full vulnerability evaluation
+                            for vuln_profile in self.payload.vulnerability_profiles:
+                                vuln_result = self.evaluate_vulnerability(
+                                    attack_prompt,
+                                    agent_response,
+                                    vuln_profile
+                                )
+                                vuln_results.append(vuln_result)
                         
                         # NEW: Merge all vulnerabilities into ONE turn result
                         grouped_result = self.merge_turn_with_vulnerabilities(
