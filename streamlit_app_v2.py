@@ -566,7 +566,7 @@ def run_sync_test(payload):
                 # Use API summary for totals and rates (if available)
                 log_container.write("✅ Using CALCULATED values for attack/vuln counts, API for totals")
                 
-                final_total = api_summary.get('total_turns', total_tests) if api_summary else total_tests
+                final_total = api_summary.get('configured_turns', api_summary.get('total_turns', total_tests)) if api_summary else total_tests
                 final_critical = critical_cnt
                 final_high = high_cnt
                 final_medium = medium_cnt
@@ -598,7 +598,11 @@ def run_sync_test(payload):
                 r1, r2, r3 = st.columns(3)
                 r1.metric("Attack Success Rate", f"{attack_success_rate:.1f}%")
                 r2.metric("Vulnerability Rate", f"{vuln_rate:.1f}%")
-                r3.metric("Pass Rate", f"{100 - attack_success_rate:.1f}%")
+                # Calculate Pass Rate: (Critical+High+Medium) / (Critical+High+Medium+Pass) * 100
+                total_results = final_critical + final_high + final_medium + final_pass
+                fail_count = final_critical + final_high + final_medium
+                pass_rate = (fail_count / total_results * 100) if total_results > 0 else 0.0
+                r3.metric("Pass Rate", f"{pass_rate:.1f}%")
 
                 # Breakdown Row
                 st.markdown("")
@@ -626,81 +630,12 @@ def render_history():
     if not results:
         st.info("No historical runs found.")
         return
-    
-    # Initialize session state
-    if 'selected_history_run' not in st.session_state:
-        st.session_state.selected_history_run = None
-    if 'history_page' not in st.session_state:
-        st.session_state.history_page = 1
-    
-    # Pagination settings
-    RESULTS_PER_PAGE = 10
-    total_results = len(results)
-    total_pages = max(1, (total_results + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE)
-    
-    # Ensure current page is valid
-    if st.session_state.history_page > total_pages:
-        st.session_state.history_page = total_pages
-    
-    current_page = st.session_state.history_page
-    start_idx = (current_page - 1) * RESULTS_PER_PAGE
-    end_idx = min(start_idx + RESULTS_PER_PAGE, total_results)
-    page_results = results[start_idx:end_idx]
-    
-    st.markdown("### 📋 Previous Test Runs")
-    st.caption(f"Showing {start_idx + 1}-{end_idx} of {total_results} results")
-    
-    # Table header
-    header_cols = st.columns([1, 3, 4, 2])
-    header_cols[0].markdown("**#**")
-    header_cols[1].markdown("**Run ID**")
-    header_cols[2].markdown("**Suite Name**")
-    header_cols[3].markdown("**Action**")
-    
-    st.divider()
-    
-    # Table rows with Select buttons
-    for i, r in enumerate(page_results):
-        row_num = start_idx + i + 1
-        run_id_short = r['run_id'][:16] + "..."
-        
-        row_cols = st.columns([1, 3, 4, 2])
-        row_cols[0].write(f"{row_num}")
-        row_cols[1].code(run_id_short, language=None)
-        row_cols[2].write(r['suite_name'])
-        if row_cols[3].button("Select", key=f"select_btn_{start_idx + i}", use_container_width=True):
-            st.session_state.selected_history_run = r['run_id']
-    
-    # Pagination controls
-    st.markdown("---")
-    st.markdown("**Pages:**")
-    
-    page_cols = st.columns(min(total_pages + 2, 12))
-    
-    # Previous button
-    with page_cols[0]:
-        if st.button("◀ Prev", disabled=(current_page == 1), key="prev_page"):
-            st.session_state.history_page = current_page - 1
-            st.rerun()
-    
-    # Page number buttons
-    for page_num in range(1, total_pages + 1):
-        if page_num < len(page_cols) - 1:
-            with page_cols[page_num]:
-                btn_type = "primary" if page_num == current_page else "secondary"
-                if st.button(str(page_num), key=f"page_{page_num}", type=btn_type):
-                    st.session_state.history_page = page_num
-                    st.rerun()
-    
-    # Next button
-    with page_cols[min(total_pages + 1, len(page_cols) - 1)]:
-        if st.button("Next ▶", disabled=(current_page == total_pages), key="next_page"):
-            st.session_state.history_page = current_page + 1
-            st.rerun()
-    
-    # Display selected result below the table
-    if st.session_state.selected_history_run:
-        details = get_result_details(st.session_state.selected_history_run)
+    df = pd.DataFrame([{"Run ID": r['run_id'], "Suite Name": r['suite_name'], "Created At": r['created_at']} for r in results])
+    st.dataframe(df, use_container_width=True)
+
+    selected_run = st.selectbox("Select Run", [r['run_id'] for r in results])
+    if st.button("Load Report"):
+        details = get_result_details(selected_run)
         if details:
             render_historical_result(details)
 
@@ -716,9 +651,7 @@ def render_historical_result(data):
         st.json(data)
         return
     
-    # ============================================
-    # FIRST: Calculate all metrics
-    # ============================================
+    # Metrics for Summary
     total_tests = len(results)
     critical_cnt = 0
     high_cnt = 0
@@ -726,111 +659,14 @@ def render_historical_result(data):
     pass_cnt = 0
     vuln_detected_count = 0
     attack_success_count = 0
-    
-    # Pre-calculate metrics
-    for res in results:
-        attack_result_obj = res.get('attack_result', {})
-        is_new_format = isinstance(attack_result_obj, dict) and 'attack_prompt' in attack_result_obj
-        res_atk_type = res.get('attack_type', '')
-        
-        # Get attack result status
-        if is_new_format:
-            result_keys = {
-                "prompt_injection": "prompt_injection_result",
-                "linear_jailbreaking": "jailbreak_result",
-                "bad_likert_judge": "likert_judge_result",
-                "crescendo": "crescendo_result"
-            }
-            result_key = result_keys.get(res_atk_type, "jailbreak_result")
-            attack_result_status = attack_result_obj.get(result_key, "Unknown")
-        else:
-            result_keys = {
-                "prompt_injection": "prompt_injection_result",
-                "linear_jailbreaking": "jailbreak_result",
-                "bad_likert_judge": "likert_judge_result",
-                "crescendo": "crescendo_result"
-            }
-            result_key = result_keys.get(res_atk_type, "jailbreak_result")
-            attack_result_status = res.get(result_key, "Unknown")
-        
-        if attack_result_status == "Success":
-            attack_success_count += 1
-        
-        # Get vulnerability data
-        vuln_evaluations = res.get('vulnerability_evaluations', [])
-        if is_new_format and vuln_evaluations and isinstance(vuln_evaluations, list):
-            any_vuln_detected = res.get('any_vulnerability_detected', False)
-        else:
-            any_vuln_detected = res.get('vulnerability_detected', False)
-        
-        # Tally
-        overall_result = res.get('overall_result', '')
-        if 'CRITICAL' in overall_result:
-            critical_cnt += 1
-            vuln_detected_count += 1
-        elif 'HIGH' in overall_result:
-            high_cnt += 1
-            if any_vuln_detected:
-                vuln_detected_count += 1
-        elif 'MEDIUM' in overall_result:
-            medium_cnt += 1
-            vuln_detected_count += 1
-        else:
-            pass_cnt += 1
-    
-    api_summary = data.get('summary', {})
-    final_total = api_summary.get('total_turns', total_tests) if api_summary else total_tests
-    final_attack_success = attack_success_count
-    final_vuln = vuln_detected_count
-    total_llm_calls = api_summary.get('total_llm_calls', sum(r.get('llm_calls_total_turn', 0) for r in results)) if api_summary else sum(r.get('llm_calls_total_turn', 0) for r in results)
-    attack_success_rate = (final_attack_success / final_total * 100) if final_total > 0 else 0.0
-    vuln_rate = (final_vuln / final_total * 100) if final_total > 0 else 0.0
-    
-    # ============================================
-    # HORIZONTAL SUMMARY AT TOP
-    # ============================================
-    st.markdown("### 📊 Test Suite Summary")
-    
-    # Top row metrics
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Total Turns", final_total)
-    m2.metric("Attack Successes", final_attack_success)
-    m3.metric("Vulnerabilities Found", final_vuln)
-    with m4:
-        st.write("**Overall Status**")
-        if critical_cnt > 0 or high_cnt > 0 or final_vuln > 0:
-            st.error("🔴 VULNERABLE")
-        else:
-            st.success("🟢 SECURE")
-    
-    # Second row - rates
-    r1, r2, r3 = st.columns(3)
-    r1.metric("Attack Success Rate", f"{attack_success_rate:.1f}%")
-    r2.metric("Vulnerability Rate", f"{vuln_rate:.1f}%")
-    r3.metric("Pass Rate", f"{100 - attack_success_rate:.1f}%")
-    
-    # Third row - breakdown
-    b1, b2, b3, b4 = st.columns(4)
-    b1.markdown(f"**🔴 Critical**\n# {critical_cnt}")
-    b2.markdown(f"**🟠 High**\n# {high_cnt}")
-    b3.markdown(f"**🟡 Medium**\n# {medium_cnt}")
-    b4.markdown(f"**🟢 Pass**\n# {pass_cnt}")
-    
-    # Metadata row
-    st.markdown("")
-    inf1, inf2, inf3 = st.columns(3)
-    inf1.write(f"**Run ID:** `{data.get('run_id')}`")
-    inf2.write(f"**Suite Name:** `{data.get('suite_name')}`")
-    inf3.write(f"**Total LLM Calls:** `{total_llm_calls}`")
-    
-    st.divider()
-    
-    # ============================================
-    # DETAILED TURN RESULTS BELOW
-    # ============================================
-    st.markdown("### 📝 Attack Prompts & Responses")
-    
-    results_container = st.container(height=600)
+
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        st.caption("📊 Summary Metrics")
+        summary_container = st.container(height=500)
+    with col2:
+        st.caption("📝 Detailed Turn Results")
+        results_container = st.container(height=500)
 
     for res in results:
         # ============================================
@@ -1020,6 +856,59 @@ def render_historical_result(data):
             
             st.divider()
     
+    # ============================================
+    # RENDER SUMMARY
+    # ============================================
+    api_summary = data.get('summary', {})
+    
+    final_total = api_summary.get('configured_turns', api_summary.get('total_turns', total_tests)) if api_summary else total_tests
+    final_critical = critical_cnt
+    final_high = high_cnt
+    final_medium = medium_cnt
+    final_pass = pass_cnt
+    final_vuln = vuln_detected_count
+    final_attack_success = attack_success_count
+    total_llm_calls = api_summary.get('total_llm_calls', sum(r.get('llm_calls_total_turn', 0) for r in results)) if api_summary else sum(r.get('llm_calls_total_turn', 0) for r in results)
+    
+    attack_success_rate = (final_attack_success / final_total * 100) if final_total > 0 else 0.0
+    vuln_rate = (final_vuln / final_total * 100) if final_total > 0 else 0.0
+    
+    with summary_container:
+        st.markdown("### 📊 Test Suite Summary")
+        
+        st.metric("Total Turns", final_total)
+        st.metric("Attack Successes", final_attack_success)
+        st.metric("Vulnerabilities Found", final_vuln)
+        
+        st.markdown("---")
+        
+        if final_critical > 0 or final_high > 0 or final_vuln > 0:
+            st.error("🔴 VULNERABLE")
+        else:
+            st.success("🟢 SECURE")
+        
+        st.markdown("---")
+        
+        st.metric("Attack Success Rate", f"{attack_success_rate:.1f}%")
+        st.metric("Vulnerability Rate", f"{vuln_rate:.1f}%")
+        # Calculate Pass Rate: (Critical+High+Medium) / (Critical+High+Medium+Pass) * 100
+        total_results = final_critical + final_high + final_medium + final_pass
+        fail_count = final_critical + final_high + final_medium
+        pass_rate = (fail_count / total_results * 100) if total_results > 0 else 0.0
+        st.metric("Pass Rate", f"{pass_rate:.1f}%")
+        
+        st.markdown("---")
+        
+        st.markdown(f"**🔴 Critical:** {final_critical}")
+        st.markdown(f"**🟠 High:** {final_high}")
+        st.markdown(f"**🟡 Medium:** {final_medium}")
+        st.markdown(f"**🟢 Pass:** {final_pass}")
+        
+        st.markdown("---")
+        
+        st.write(f"**Run ID:** `{data.get('run_id')}`")
+        st.write(f"**Suite Name:** `{data.get('suite_name')}`")
+        st.write(f"**Total LLM Calls:** `{total_llm_calls}`")
     
     # Raw JSON expander outside containers
     with st.expander("📄 View Full Raw JSON Response"):
