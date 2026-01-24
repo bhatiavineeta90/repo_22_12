@@ -1,4 +1,4 @@
-# apiv2/routes_v2.py
+m # apiv2/routes_v2.py
 """
 API V2 routes for the RedTeam V2 runner.
 Provides endpoints for running tests with the new payload structure.
@@ -231,7 +231,7 @@ async def list_results_v2():
     Returns a list of available result files with metadata including
     run ID, payload ID, suite name, and file size.
     """
-    results_dir = "results/runs"
+    results_dir = "apiv2/results/runs"
     
     if not os.path.exists(results_dir):
         return ResultsListResponseV2(total_count=0, results=[])
@@ -282,7 +282,7 @@ async def get_result_v2(run_id: str):
     
     Returns the full JSON data for the specified run ID.
     """
-    filepath = f"results/runs/{run_id}.json"
+    filepath = f"apiv2/results/runs/{run_id}.json"
     
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail=f"Result not found for run_id: {run_id}")
@@ -308,7 +308,7 @@ async def delete_result_v2(run_id: str):
     
     Permanently removes the result file. This action cannot be undone.
     """
-    filepath = f"results/runs/{run_id}.json"
+    filepath = f"apiv2/results/runs/{run_id}.json"
     
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail=f"Result not found for run_id: {run_id}")
