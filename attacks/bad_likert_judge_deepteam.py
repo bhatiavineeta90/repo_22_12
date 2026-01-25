@@ -329,9 +329,9 @@ def init_attack(num_turns: int, category: str = "bias", enable_refinement: bool 
     """Initialize the BadLikertJudge attack with configuration."""
     attack = BadLikertJudge(
         category=category,
-        num_turns=num_turns,
+        turns=num_turns,  # BadLikertJudge uses 'turns' parameter
         enable_refinement=enable_refinement,
-        max_backtracks=max_backtracks,
+        # Note: max_backtracks is not supported by BadLikertJudge class
     )
     
     # Use provided model or default to GeminiModel
