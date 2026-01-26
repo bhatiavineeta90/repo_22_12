@@ -8,7 +8,7 @@ import uuid
 
 #  Configuration 
 
-BACKEND_URL = "http://localhost:8001"
+BACKEND_URL = "http://localhost:8005"
 API_V2_STR = "/api/v2"
 
 # Bypass proxy for localhost
@@ -566,7 +566,7 @@ def run_sync_test(payload):
                 # Use API summary for totals and rates (if available)
                 log_container.write("✅ Using CALCULATED values for attack/vuln counts, API for totals")
                 
-                final_total = api_summary.get('configured_turns', api_summary.get('total_turns', total_tests)) if api_summary else total_tests
+                final_total = api_summary.get('total_turns', total_tests) if api_summary else total_tests
                 final_critical = critical_cnt
                 final_high = high_cnt
                 final_medium = medium_cnt
@@ -597,12 +597,8 @@ def run_sync_test(payload):
                 st.markdown("")
                 r1, r2, r3 = st.columns(3)
                 r1.metric("Attack Success Rate", f"{attack_success_rate:.1f}%")
-                r2.metric("Vulnerability Rate", f"{vuln_rate:.1f}%")
-                # Calculate Pass Rate: (Critical+High+Medium) / (Critical+High+Medium+Pass) * 100
-                total_results = final_critical + final_high + final_medium + final_pass
-                fail_count = final_critical + final_high + final_medium
-                pass_rate = (fail_count / total_results * 100) if total_results > 0 else 0.0
-                r3.metric("Pass Rate", f"{pass_rate:.1f}%")
+                #r2.metric("Vulnerability Rate", f"{vuln_rate:.1f}%")
+                r3.metric("Fail Rate", f"{100 - attack_success_rate:.1f}%")
 
                 # Breakdown Row
                 st.markdown("")
@@ -610,7 +606,7 @@ def run_sync_test(payload):
                 b1.markdown(f"**🔴 Critical**\n# {final_critical}")
                 b2.markdown(f"**🟠 High**\n# {final_high}")
                 b3.markdown(f"**🟡 Medium**\n# {final_medium}")
-                b4.markdown(f"**🟢 Pass**\n# {final_pass}")
+                b4.markdown(f"**🟢 Failed**\n# {final_pass}")
 
                 # Metadata Table
                 st.markdown("")
@@ -711,7 +707,7 @@ def render_history():
 def render_historical_result(data):
     """Render historical result with same UI as live execution"""
     st.divider()
-    st.subheader(f"📋 Report: {data.get('suite_name', 'Unnamed Suite')}")
+    # st.subheader(f"📋 Report: {data.get('suite_name', 'Unnamed Suite')}")
     
     results = data.get('results', [])
     
@@ -810,15 +806,15 @@ def render_historical_result(data):
     # Second row - rates
     r1, r2, r3 = st.columns(3)
     r1.metric("Attack Success Rate", f"{attack_success_rate:.1f}%")
-    r2.metric("Vulnerability Rate", f"{vuln_rate:.1f}%")
-    r3.metric("Pass Rate", f"{100 - attack_success_rate:.1f}%")
+    #r2.metric("Vulnerability Rate", f"{vuln_rate:.1f}%")
+    r3.metric("Fail Rate", f"{100 - attack_success_rate:.1f}%")
     
     # Third row - breakdown
     b1, b2, b3, b4 = st.columns(4)
     b1.markdown(f"**🔴 Critical**\n# {critical_cnt}")
     b2.markdown(f"**🟠 High**\n# {high_cnt}")
     b3.markdown(f"**🟡 Medium**\n# {medium_cnt}")
-    b4.markdown(f"**🟢 Pass**\n# {pass_cnt}")
+    b4.markdown(f"**🟢 Failed**\n# {pass_cnt}")
     
     # Metadata row
     st.markdown("")
@@ -1023,6 +1019,7 @@ def render_historical_result(data):
                 st.json(res)
             
             st.divider()
+    
     
     # Raw JSON expander outside containers
     with st.expander("📄 View Full Raw JSON Response"):
