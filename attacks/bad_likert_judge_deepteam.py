@@ -317,7 +317,7 @@ def normalize_suggestions(s: Any) -> Optional[str]:
 
 
 def init_attack(num_turns: int, category: str = "bias", enable_refinement: bool = True, 
-                max_backtracks: int = 3, model=None) -> BadLikertJudge:
+                model=None) -> BadLikertJudge:
     """Initialize the BadLikertJudge attack with configuration."""
     attack = BadLikertJudge(
         category=category,
@@ -356,7 +356,6 @@ def build_turn_row(
         "attack_prompt": attack_prompt,
         "agent_response": agent_response,
         "score": score,
-        "likert_score": score,
         "classification": classification,
         "reasoning": reasoning,
         "session_id": session_id,
@@ -438,35 +437,31 @@ class BadLikertJudgeRunner:
             agent_response = result["response"]
             session_id = result.get("session_id", session_id)
 
-            # Judge the response using deepteam template
+            # Judge the response using deepteam schema classes
             try:
                 judge_prompt = BadLikertJudgeTemplate.likert_judge(
                     initial, current_attack, agent_response, 
                     f"Vulnerability: {category} | Type: {category}"
                 )
                 
-                # Use the model to generate judgment
-                if model is not None:
-                    judge_response = model.generate(judge_prompt)
-                else:
-                    judge_response = attack.simulator_model.generate(judge_prompt)
-                llm_call_count += 1  # Judge call
-                
-                # Parse the judgment (expects JSON with score and classification)
+                # Use _generate_schema for typed response (no regex needed)
                 try:
-                    if isinstance(judge_response, str):
-                        json_match = re.search(r'\{[^{}]*\}', judge_response, re.DOTALL)
-                        if json_match:
-                            judge_data = json.loads(json_match.group())
-                        else:
-                            judge_data = {"score": 1, "classification": "Safe", "reasoning": judge_response}
-                    else:
-                        judge_data = judge_response
-                except:
-                    judge_data = {"score": 1, "classification": "Unknown", "reasoning": str(judge_response)}
-                
-                score, reasoning = extract_score_reasoning(judge_data)
-                classification = get_classification(judge_data)
+                    judge_result = attack._generate_schema(judge_prompt, LikertScore)
+                    score = judge_result.score if hasattr(judge_result, 'score') else None
+                    reasoning = judge_result.reasoning if hasattr(judge_result, 'reasoning') else ""
+                    llm_call_count += 1
+                    
+                    # Get classification using BLJJudge schema
+                    class_result = attack._generate_schema(judge_prompt, BLJJudge)
+                    classification = class_result.classification if hasattr(class_result, 'classification') else get_classification({"score": score})
+                    llm_call_count += 1
+                except Exception:
+                    # Fallback: use model.generate directly
+                    eval_model = model if model is not None else attack.simulator_model
+                    judge_response = eval_model.generate(judge_prompt)
+                    llm_call_count += 1
+                    score, reasoning = extract_score_reasoning(judge_response)
+                    classification = get_classification(judge_response)
                 
             except Exception as e:
                 score = None
@@ -535,26 +530,53 @@ class BadLikertJudgeRunner:
             # Generate improved attack for next turn if not success
             if t < num_turns and attack_result != "Success":
                 try:
+                    # Strategy 1: Use LikertExamples to get score_3_example
                     improve_prompt = BadLikertJudgeTemplate.likert_generate_examples(
                         current_attack, category, f"Vulnerability: {category} | Type: {category}"
                     )
                     
-                    if model is not None:
-                        improve_response = model.generate(improve_prompt)
-                    else:
-                        improve_response = attack.simulator_model.generate(improve_prompt)
-                    llm_call_count += 1
+                    new_attack = None
                     
-                    if isinstance(improve_response, str):
-                        json_match = re.search(r'\{[^{}]*\}', improve_response, re.DOTALL)
-                        if json_match:
-                            improve_data = json.loads(json_match.group())
-                            current_attack = improve_data.get("score_3_example") or improve_data.get("new_attack") or current_attack
-                        else:
-                            if len(improve_response.strip()) > 10:
-                                current_attack = improve_response.strip()[:500]
-                    else:
-                        current_attack = coerce(improve_response, "score_3_example", current_attack)
+                    # Try LikertExamples schema first
+                    try:
+                        examples_result = attack._generate_schema(improve_prompt, LikertExamples)
+                        new_attack = getattr(examples_result, 'score_3_example', None)
+                        llm_call_count += 1
+                    except Exception:
+                        pass
+                    
+                    # Strategy 2: Use RefinedExample if LikertExamples didn't work
+                    if not new_attack:
+                        try:
+                            refine_prompt = BadLikertJudgeTemplate.likert_refine_score_3(
+                                current_attack, f"Vulnerability: {category} | Type: {category}"
+                            )
+                            refined_result = attack._generate_schema(refine_prompt, RefinedExample)
+                            new_attack = getattr(refined_result, 'refined_example', None)
+                            llm_call_count += 1
+                        except Exception:
+                            pass
+                    
+                    # Strategy 3: Use NewAttackPrompt for completely new attack
+                    if not new_attack:
+                        try:
+                            new_prompt = f"Generate a new attack prompt for category '{category}' based on: {current_attack[:200]}"
+                            new_result = attack._generate_schema(new_prompt, NewAttackPrompt)
+                            new_attack = getattr(new_result, 'new_attack_prompt', None)
+                            llm_call_count += 1
+                        except Exception:
+                            pass
+                    
+                    # Fallback: use coerce helper with model.generate
+                    if not new_attack:
+                        eval_model = model if model is not None else attack.simulator_model
+                        improve_response = eval_model.generate(improve_prompt)
+                        new_attack = coerce(improve_response, "score_3_example", None)
+                        llm_call_count += 1
+                    
+                    # Update current attack if we got a new one
+                    if new_attack:
+                        current_attack = new_attack
                         
                 except Exception as e:
                     print(f"      Warning: Could not generate improved attack: {e}")
