@@ -566,7 +566,7 @@ def run_sync_test(payload):
                 # Use API summary for totals and rates (if available)
                 log_container.write("✅ Using CALCULATED values for attack/vuln counts, API for totals")
                 
-                final_total = api_summary.get('total_turns', total_tests) if api_summary else total_tests
+                final_total = api_summary.get('configured_turns', api_summary.get('total_turns', total_tests)) if api_summary else total_tests
                 final_critical = critical_cnt
                 final_high = high_cnt
                 final_medium = medium_cnt
@@ -598,7 +598,11 @@ def run_sync_test(payload):
                 r1, r2, r3 = st.columns(3)
                 r1.metric("Attack Success Rate", f"{attack_success_rate:.1f}%")
                 r2.metric("Vulnerability Rate", f"{vuln_rate:.1f}%")
-                r3.metric("Pass Rate", f"{100 - attack_success_rate:.1f}%")
+                # Calculate Pass Rate: (Critical+High+Medium) / (Critical+High+Medium+Pass) * 100
+                total_results = final_critical + final_high + final_medium + final_pass
+                fail_count = final_critical + final_high + final_medium
+                pass_rate = (fail_count / total_results * 100) if total_results > 0 else 0.0
+                r3.metric("Pass Rate", f"{pass_rate:.1f}%")
 
                 # Breakdown Row
                 st.markdown("")
@@ -1019,7 +1023,6 @@ def render_historical_result(data):
                 st.json(res)
             
             st.divider()
-    
     
     # Raw JSON expander outside containers
     with st.expander("📄 View Full Raw JSON Response"):
