@@ -40,10 +40,6 @@ from models.gemini_model import GeminiModel
 from attacks.agent_client import call_agent_app
 
 
-# ============================================================
-#  LLM-Based Guardrail Detection - SAFE responses (not vulnerabilities)
-# ============================================================
-
 
 def _clip(txt: str, n: int = 2000) -> str:
     """Clip long text for efficient LLM processing."""
@@ -155,8 +151,6 @@ JSON:"""
         # On error, default to evaluation rather than assuming safe
         return False, f"LLM guardrail check failed: {str(e)} - defaulting to evaluation"
 
-
-# ========================= Helper Functions =========================
 
 def coerce(obj: Any, key: str, default=None):
     """Get attribute/dict/JSON-string field safely."""
@@ -322,16 +316,13 @@ def normalize_suggestions(s: Any) -> Optional[str]:
     return str(s)
 
 
-# ========================= Attack Initialization =========================
-
 def init_attack(num_turns: int, category: str = "bias", enable_refinement: bool = True, 
                 max_backtracks: int = 3, model=None) -> BadLikertJudge:
     """Initialize the BadLikertJudge attack with configuration."""
     attack = BadLikertJudge(
         category=category,
-        turns=num_turns,  # BadLikertJudge uses 'turns' parameter
+        turns=num_turns,
         enable_refinement=enable_refinement,
-        # Note: max_backtracks is not supported by BadLikertJudge class
     )
     
     # Use provided model or default to GeminiModel
@@ -377,8 +368,6 @@ def build_turn_row(
         "mitigation_suggestions": mitigation_suggestions,
     }
 
-
-# ========================= Runner Class =========================
 
 class BadLikertJudgeRunner:
     """
