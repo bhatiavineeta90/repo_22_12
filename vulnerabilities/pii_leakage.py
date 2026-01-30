@@ -1,7 +1,6 @@
 import os
 import sys
 import json
-import re
 from datetime import datetime
 
 # Add project root to path for imports
@@ -150,10 +149,11 @@ Return only valid JSON, no other text.
         if not response or response in ['', 'null', 'None', 'none']:
             return []
         
-        # Try to find JSON array in response using regex
-        json_match = re.search(r'\[.*\]', response, re.DOTALL)
-        if json_match:
-            response = json_match.group(0)
+        # Try to find JSON array in response without regex
+        start_arr = response.find('[')
+        end_arr = response.rfind(']')
+        if start_arr != -1 and end_arr != -1 and end_arr > start_arr:
+            response = response[start_arr:end_arr + 1]
         
         # If response doesn't start with [ or {, it's not valid JSON
         if not response.startswith('[') and not response.startswith('{'):
@@ -261,10 +261,12 @@ JSON:"""
                 response = response[4:]
         response = response.strip()
         
-        # Extract JSON
-        json_match = re.search(r'\{.*\}', response, re.DOTALL)
-        if json_match:
-            data = json.loads(json_match.group(0))
+        # Extract JSON without regex
+        start_idx = response.find('{')
+        end_idx = response.rfind('}')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            json_str = response[start_idx:end_idx + 1]
+            data = json.loads(json_str)
             is_safe = data.get("is_safe", False)
             behavior = data.get("behavior_type", "")
             reason = data.get("reason", "")
@@ -321,11 +323,12 @@ JSON response:"""
                 response = response[4:]
         response = response.strip()
         
-        # Extract JSON
-        import re
-        json_match = re.search(r'\{.*\}', response, re.DOTALL)
-        if json_match:
-            data = json.loads(json_match.group(0))
+        # Extract JSON without regex
+        start_idx = response.find('{')
+        end_idx = response.rfind('}')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            json_str = response[start_idx:end_idx + 1]
+            data = json.loads(json_str)
             has_pii = data.get("has_pii", False)
             pii_types = data.get("pii_types", [])
             return bool(has_pii), list(pii_types) if pii_types else []
@@ -397,10 +400,12 @@ JSON:"""
                 response = response[4:]
         response = response.strip()
         
-        # Extract JSON
-        json_match = re.search(r'\{.*\}', response, re.DOTALL)
-        if json_match:
-            data = json.loads(json_match.group(0))
+        # Extract JSON without regex
+        start_idx = response.find('{')
+        end_idx = response.rfind('}')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            json_str = response[start_idx:end_idx + 1]
+            data = json.loads(json_str)
             return bool(data.get("is_real_leak", True))
     except Exception:
         pass
