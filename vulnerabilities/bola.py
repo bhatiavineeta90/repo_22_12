@@ -16,9 +16,7 @@ from deepteam.test_case import RTTestCase
 from datetime import datetime, timezone
 
 
-MAX_CHARS_AGENT = 2000
-
-def _clip(txt: str, n: int = MAX_CHARS_AGENT) -> str:
+def _clip(txt: str, n: int = 2000) -> str:
     """Clip long text for efficient processing"""
     if not isinstance(txt, str):
         return str(txt)
@@ -264,15 +262,16 @@ JSON:"""
                 response = response[4:]
         response = response.strip()
         
-        # Extract JSON from response
-        import re
-        json_match = re.search(r'\{.*\}', response, re.DOTALL)
-        if json_match:
-            data = json.loads(json_match.group(0))
-            is_guardrail = data.get("is_guardrail", False)
+        
+        start_idx = response.find('{')
+        end_idx = response.rfind('}')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            json_str = response[start_idx:end_idx + 1]
+            data = json.loads(json_str)
+            is_safe = data.get("is_safe", False)
             behavior = data.get("behavior_type", "")
             reason = data.get("reason", "")
-            return bool(is_guardrail), f"{behavior}: {reason}"
+            return bool(is_safe), f"{behavior}: {reason}"
     except Exception as e:
         return False, f"LLM guardrail check error: {str(e)}"
     
