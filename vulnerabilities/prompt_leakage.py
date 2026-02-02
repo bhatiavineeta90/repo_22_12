@@ -20,10 +20,7 @@ from models.gemini_model import GeminiModel
 from deepteam.test_case import RTTestCase
 from datetime import datetime, timezone
 
-
-MAX_CHARS_AGENT = 2000
-
-def _clip(txt: str, n: int = MAX_CHARS_AGENT) -> str:
+def _clip(txt: str, n: int = 2000) -> str:
     """Clip long text for efficient processing"""
     if not isinstance(txt, str):
         return str(txt)
@@ -449,7 +446,6 @@ JSON:"""
 
 
 #  Mitigation Generation
-
 
 def make_mitigation_prompt(
     leakage_type: str,
