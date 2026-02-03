@@ -534,6 +534,13 @@ def run_sync_test(payload):
                                     
                                     if detected_pii:
                                         st.write(f"**Detected PII Types:** {', '.join(detected_pii)}")
+                                    
+                                    # Display mitigation suggestion if available
+                                    vmitigation = ve.get('mitigation_suggestion', '')
+                                    if vmitigation:
+                                        st.markdown("---")
+                                        st.markdown("**🛠️ Mitigation Suggestion:**")
+                                        st.info(vmitigation)
                         
                         if res.get('tool_calls'):
                             with st.expander("🔧 View Agent Tool Calls"):
@@ -1010,6 +1017,13 @@ def render_historical_result(data):
                         
                         if detected_pii:
                             st.write(f"**Detected PII Types:** {', '.join(detected_pii)}")
+                        
+                        # Display mitigation suggestion if available
+                        vmitigation = ve.get('mitigation_suggestion', '')
+                        if vmitigation:
+                            st.markdown("---")
+                            st.markdown("**🛠️ Mitigation Suggestion:**")
+                            st.info(vmitigation)
             
             if res.get('tool_calls'):
                 with st.expander("🔧 View Agent Tool Calls"):

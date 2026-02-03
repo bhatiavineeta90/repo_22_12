@@ -506,6 +506,21 @@ class RedTeamV2:
                 })
         
         result["detected_pii_by_type"] = detected_pii_by_type
+        
+        # Generate mitigation if vulnerable
+        if result.get("vulnerable"):
+            try:
+                pii_type = detected_pii_by_type[0]["id"] if detected_pii_by_type else "general"
+                mitigation = checker.generate_mitigation(
+                    pii_type=pii_type,
+                    attack_prompt=attack_prompt,
+                    agent_response=agent_response,
+                    evaluation_result=eval_result
+                )
+                result["mitigation_suggestions"] = mitigation
+            except Exception as e:
+                result["mitigation_suggestions"] = f"Mitigation generation error: {str(e)[:100]}"
+        
         return result
     
     def _evaluate_bola(
@@ -535,6 +550,18 @@ class RedTeamV2:
             "llm_calls_made": eval_result.get("llm_calls_made", 0),
         })
         
+        # Generate mitigation if vulnerable
+        if result.get("vulnerable"):
+            try:
+                mitigation = checker.generate_mitigation(
+                    attack_prompt=attack_prompt,
+                    agent_response=agent_response,
+                    evaluation_result=eval_result
+                )
+                result["mitigation_suggestions"] = mitigation
+            except Exception as e:
+                result["mitigation_suggestions"] = f"Mitigation generation error: {str(e)[:100]}"
+        
         return result
     
     def _evaluate_prompt_leakage(
@@ -563,6 +590,18 @@ class RedTeamV2:
             "evaluation_method": "prompt_leakage",
             "llm_calls_made": eval_result.get("llm_calls_made", 0),
         })
+        
+        # Generate mitigation if vulnerable
+        if result.get("vulnerable"):
+            try:
+                mitigation = checker.generate_mitigation(
+                    attack_prompt=attack_prompt,
+                    agent_response=agent_response,
+                    evaluation_result=eval_result
+                )
+                result["mitigation_suggestions"] = mitigation
+            except Exception as e:
+                result["mitigation_suggestions"] = f"Mitigation generation error: {str(e)[:100]}"
         
         return result
     
@@ -628,6 +667,9 @@ class RedTeamV2:
             f"{attack_label}_result": attack_result.get("attack_result"),
             f"{attack_label}_reasoning": attack_result.get("reasoning", ""),
             
+            # Mitigation suggestions (if attack score >= 7)
+            "mitigation_suggestions": attack_result.get("mitigation_suggestions"),
+            
             # Vulnerability results
             "vulnerability_profile_id": vuln_result.get("vulnerability_profile_id"),
             "vulnerability_profile_name": vuln_result.get("vulnerability_profile_name"),
@@ -636,6 +678,7 @@ class RedTeamV2:
             "vulnerability_severity": vuln_result.get("severity"),
             "vulnerability_reasoning": vuln_result.get("reasoning", ""),
             "detected_pii_types": vuln_result.get("detected_pii_by_type", []),
+            "vulnerability_mitigation": vuln_result.get("mitigation_suggestions"),
             
             # LLM call tracking
             "llm_calls_attack": attack_llm_calls,
@@ -737,6 +780,7 @@ class RedTeamV2:
                 f"{attack_label}_reasoning": attack_result.get("reasoning", ""),
                 "on_topic": attack_result.get("on_topic"),
                 "refusal": attack_result.get("refusal"),
+                "mitigation_suggestions": attack_result.get("mitigation_suggestions"),
             },
             
             # Vulnerability evaluations (nested array - all vulns for this turn)
@@ -751,6 +795,7 @@ class RedTeamV2:
                     "vulnerability_reasoning": v.get("reasoning", ""),
                     "detected_issues": v.get("detected_issues", []),
                     "detected_pii_types": v.get("detected_pii_types", []),
+                    "mitigation_suggestions": v.get("mitigation_suggestions"),
                 }
                 for v in vuln_results
             ],
