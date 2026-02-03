@@ -553,7 +553,10 @@ class RedTeamV2:
         # Generate mitigation if vulnerable
         if result.get("vulnerable"):
             try:
+                # Get BOLA type from configuration or use first resource type
+                bola_type = vuln_profile.bola_resource_types[0] if vuln_profile.bola_resource_types else "authorization"
                 mitigation = checker.generate_mitigation(
+                    bola_type=bola_type,
                     attack_prompt=attack_prompt,
                     agent_response=agent_response,
                     evaluation_result=eval_result
@@ -594,7 +597,10 @@ class RedTeamV2:
         # Generate mitigation if vulnerable
         if result.get("vulnerable"):
             try:
+                # Use "system_prompt_extraction" as leakage type since that's what we initialize with
+                leakage_type = "system_prompt_extraction"
                 mitigation = checker.generate_mitigation(
+                    leakage_type=leakage_type,
                     attack_prompt=attack_prompt,
                     agent_response=agent_response,
                     evaluation_result=eval_result

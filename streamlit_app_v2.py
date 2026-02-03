@@ -46,90 +46,104 @@ def get_result_details(run_id):
         st.error(f"Error fetching run details: {e}")
         return None
 
-#  UI Layout Components 
-
 def render_vulnerability_matrix(results):
     """
-    Renders a matrix where Rows = Vulnerability Types and Columns = Attack Types
-    Cell content = Detected / Total Checks
+    Render a vulnerability matrix showing Turn vs Vulnerability Type with detection status.
+    Displays above the result summary section.
     """
     if not results:
         return
-
-    # 1. Identify all unique Attack Types and Vulnerability Types present in results
-    unique_attack_keys = sorted(list(set(res.get('attack_type', 'unknown') for res in results)))
     
-    unique_vuln_keys = set()
-    for res in results:
-        evals = res.get('vulnerability_evaluations', [])
-        if isinstance(evals, list) and len(evals) > 0:
-            for ve in evals:
-                unique_vuln_keys.add(ve.get('vulnerability_type', 'unknown'))
-        else:
-            v_name = res.get('vulnerability_profile_name', 'vulnerability')
-            unique_vuln_keys.add(v_name.lower().replace(' detection', '').replace(' ', '_'))
+    # Collect all unique vulnerability types and attack types
+    vuln_types = set()
+    attack_types = set()
     
-    unique_vuln_keys = sorted(list(unique_vuln_keys))
-    all_row_keys = ["no_vulnerability"] + unique_vuln_keys
-
-    # 2. Initialize Matrix Data Structure
-    matrix = {v: {a: [0, 0] for a in unique_attack_keys} for v in all_row_keys}
-
-    # 3. Populate Matrix
     for res in results:
-        atk_key = res.get('attack_type', 'unknown')
+        attack_types.add(res.get('attack_type', 'unknown'))
+        vuln_evals = res.get('vulnerability_evaluations', [])
+        for ve in vuln_evals:
+            vtype = ve.get('vulnerability_type', 'unknown')
+            vuln_types.add(vtype)
+    
+    if not vuln_types:
+        return
+    
+    vuln_types = sorted(list(vuln_types))
+    
+    # Create matrix data: rows = turns, columns = vulnerability types
+    matrix_data = []
+    mitigations_collected = []
+    
+    for res in results:
+        turn = res.get('turn', '?')
+        attack_type = res.get('attack_type', 'unknown').replace('_', ' ').title()
+        overall_result = res.get('overall_result', '')
         
-        # --- Baseline "No Vulnerability" Row ---
-        attack_result_obj = res.get('attack_result', {})
-        is_new_format = isinstance(attack_result_obj, dict) and 'attack_prompt' in attack_result_obj
-        result_keys = {
-            "prompt_injection": "prompt_injection_result", 
-            "linear_jailbreaking": "jailbreak_result", 
-            "bad_likert_judge": "likert_judge_result", 
-            "crescendo": "crescendo_result"
+        row = {
+            'Turn': f"T{turn}",
+            'Attack': attack_type[:15],  # Truncate for display
         }
-        res_key = result_keys.get(atk_key, "jailbreak_result")
-        atk_status = attack_result_obj.get(res_key, "Unknown") if is_new_format else res.get(res_key, "Unknown")
         
-        matrix["no_vulnerability"][atk_key][1] += 1
-        if atk_status == "Success":
-            matrix["no_vulnerability"][atk_key][0] += 1 
-
-        # --- Specific Vulnerability Rows ---
-        evals = res.get('vulnerability_evaluations', [])
-        if isinstance(evals, list) and len(evals) > 0:
-            for ve in evals:
-                v_key = ve.get('vulnerability_type', 'unknown')
-                if v_key in matrix:
-                    matrix[v_key][atk_key][1] += 1
-                    if ve.get('vulnerability_detected', False):
-                        matrix[v_key][atk_key][0] += 1 
-        else:
-            v_key = res.get('vulnerability_profile_name', 'vulnerability').lower().replace(' detection', '').replace(' ', '_')
-            if v_key in matrix:
-                matrix[v_key][atk_key][1] += 1
-                if res.get('vulnerability_detected', False):
-                    matrix[v_key][atk_key][0] += 1
-
-    # 4. Prepare DataFrame
-    display_data = []
-    for v_key in all_row_keys:
-        if v_key == "no_vulnerability":
-            row_label = "Attack Success (No Vulnerability)"
-        else:
-            row_label = v_key.replace('_', ' ').title()
-            
-        row = {"Vulnerability": row_label}
-        for a_key in unique_attack_keys:
-            col_name = a_key.replace('_', ' ').title()
-            detected, total = matrix[v_key][a_key]
-            row[col_name] = f"{detected}/{total}"
-        display_data.append(row)
+        vuln_evals = res.get('vulnerability_evaluations', [])
+        for vtype in vuln_types:
+            # Find this vulnerability type in evaluations
+            ve_match = next((ve for ve in vuln_evals if ve.get('vulnerability_type') == vtype), None)
+            if ve_match:
+                detected = ve_match.get('vulnerability_detected', False)
+                severity = ve_match.get('vulnerability_severity', 'none')
+                mitigation = ve_match.get('mitigation_suggestions', '')
+                
+                if detected:
+                    if severity == 'critical':
+                        row[vtype.replace('_', ' ').title()] = '🔴 CRITICAL'
+                    elif severity == 'high':
+                        row[vtype.replace('_', ' ').title()] = '🟠 HIGH'
+                    elif severity == 'medium':
+                        row[vtype.replace('_', ' ').title()] = '🟡 MEDIUM'
+                    else:
+                        row[vtype.replace('_', ' ').title()] = '⚠️ DETECTED'
+                    
+                    # Collect mitigation if available
+                    if mitigation:
+                        mitigations_collected.append({
+                            'turn': turn,
+                            'attack_type': attack_type,
+                            'vuln_type': vtype.replace('_', ' ').title(),
+                            'severity': severity,
+                            'mitigation': mitigation
+                        })
+                else:
+                    row[vtype.replace('_', ' ').title()] = '🟢 Safe'
+            else:
+                row[vtype.replace('_', ' ').title()] = '—'
+        
+        matrix_data.append(row)
     
-    df = pd.DataFrame(display_data).set_index("Vulnerability")
+    # Display the matrix
+    st.markdown("### 🎯 Vulnerability Matrix")
+    st.caption("Turn-by-Turn vulnerability detection status across all checked vulnerability types")
     
-    st.markdown("#### 🛡️ Attack vs Vulnerability Detection Matrix")
-    st.table(df)
+    df = pd.DataFrame(matrix_data)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+    
+    # Display collected mitigations summary
+    if mitigations_collected:
+        st.markdown("### 🛠️ Mitigation Suggestions Summary")
+        st.caption(f"Found {len(mitigations_collected)} mitigation suggestion(s) for detected vulnerabilities")
+        
+        for i, mit in enumerate(mitigations_collected, 1):
+            severity_icon = {'critical': '🔴', 'high': '🟠', 'medium': '🟡'}.get(mit['severity'], '⚠️')
+            with st.expander(f"{severity_icon} Turn {mit['turn']} - {mit['vuln_type']} ({mit['severity'].upper()})"):
+                st.markdown(f"**Attack Type:** {mit['attack_type']}")
+                st.markdown("**Mitigation:**")
+                st.info(mit['mitigation'])
+    
+    st.divider()
+
+#  UI Layout Components 
+
+
+
 
 def render_sidebar():
     st.sidebar.title("RedTeam")
@@ -601,7 +615,7 @@ def run_sync_test(payload):
                                         st.write(f"**Detected PII Types:** {', '.join(detected_pii)}")
                                     
                                     # Display mitigation suggestion if available
-                                    vmitigation = ve.get('mitigation_suggestion', '')
+                                    vmitigation = ve.get('mitigation_suggestions', '')
                                     if vmitigation:
                                         st.markdown("---")
                                         st.markdown("**🛠️ Mitigation Suggestion:**")
@@ -650,6 +664,9 @@ def run_sync_test(payload):
                 # Calculate rates from actual values
                 attack_success_rate = (final_attack_success / final_total * 100) if final_total > 0 else 0.0
                 vuln_rate = (final_vuln / final_total * 100) if final_total > 0 else 0.0
+                
+                # Display vulnerability matrix with mitigations
+                render_vulnerability_matrix(results)
                 
                 st.markdown("### 📊 Test Suite Summary")
                 
@@ -857,6 +874,9 @@ def render_historical_result(data):
     total_llm_calls = api_summary.get('total_llm_calls', sum(r.get('llm_calls_total_turn', 0) for r in results)) if api_summary else sum(r.get('llm_calls_total_turn', 0) for r in results)
     attack_success_rate = (final_attack_success / final_total * 100) if final_total > 0 else 0.0
     vuln_rate = (final_vuln / final_total * 100) if final_total > 0 else 0.0
+    
+    # Display vulnerability matrix with mitigations
+    render_vulnerability_matrix(results)
     
     # ============================================
     # HORIZONTAL SUMMARY AT TOP
@@ -1084,7 +1104,7 @@ def render_historical_result(data):
                             st.write(f"**Detected PII Types:** {', '.join(detected_pii)}")
                         
                         # Display mitigation suggestion if available
-                        vmitigation = ve.get('mitigation_suggestion', '')
+                        vmitigation = ve.get('mitigation_suggestions', '')
                         if vmitigation:
                             st.markdown("---")
                             st.markdown("**🛠️ Mitigation Suggestion:**")
