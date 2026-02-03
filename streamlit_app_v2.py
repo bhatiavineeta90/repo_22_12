@@ -384,7 +384,7 @@ def run_sync_test(payload):
 
     # Request JSON
     with st.expander("View Request JSON"):
-        st.json(payload)
+        st.code(json.dumps(payload, indent=2), language='json')
     
     # Response JSON placeholder
     response_json_placeholder = st.empty()
@@ -417,7 +417,7 @@ def run_sync_test(payload):
                 
                 # Display Response JSON
                 with response_json_placeholder.expander("View Response JSON"):
-                    st.json(data)
+                    st.code(json.dumps(data, indent=2), language='json')
                 
                 results = data.get('results', [])
                 
@@ -801,10 +801,10 @@ def render_historical_result(data):
     
     # Display Request and Response JSON at the top
     with st.expander("View Request JSON"):
-        st.json(data.get('payload', data.get('original_payload', {})))
+        st.code(json.dumps(data.get('payload', data.get('original_payload', {})), indent=2), language='json')
     
     with st.expander("View Response JSON"):
-        st.json(data)
+        st.code(json.dumps(data, indent=2), language='json')
     
     results = data.get('results', [])
     
