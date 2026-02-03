@@ -458,7 +458,6 @@ def run_sync_test(payload):
                         result_key = result_keys.get(res_atk_type, "jailbreak_result")
                         attack_result_status = attack_result_obj.get(result_key, "Unknown")
                         
-                        # Extract reasoning
                         reasoning_keys = {
                             "prompt_injection": "prompt_injection_reasoning",
                             "linear_jailbreaking": "jailbreak_reasoning",
@@ -467,6 +466,9 @@ def run_sync_test(payload):
                         }
                         reasoning_key = reasoning_keys.get(res_atk_type, "jailbreak_reasoning")
                         attack_reasoning = attack_result_obj.get(reasoning_key, '')
+                        
+                        # Extract attack mitigation suggestion
+                        attack_mitigation = attack_result_obj.get('mitigation_suggestions', '')
                     else:
                         
                         attack_prompt = res.get('attack_prompt', '')
@@ -490,6 +492,9 @@ def run_sync_test(payload):
                         result_key = result_keys.get(res_atk_type, "jailbreak_result")
                         attack_result_status = res.get(result_key, "Unknown")
                         attack_reasoning = res.get('jailbreak_reasoning', '') or res.get('reasoning', '')
+                        
+                        # Extract attack mitigation for old format
+                        attack_mitigation = res.get('mitigation_suggestions', '')
                     
                     score_display = float(raw_score) if raw_score is not None else 0.0
                     
@@ -563,6 +568,11 @@ def run_sync_test(payload):
                         if attack_reasoning:
                             st.markdown("**Attack Reasoning:**")
                             st.caption(attack_reasoning)
+                        
+                        # Display attack mitigation if available
+                        if attack_mitigation:
+                            st.markdown("**🛠️ Attack Mitigation Suggestion:**")
+                            st.info(attack_mitigation)
 
                         # Attack result row
                         c_a, c_b, c_c = st.columns(3)
@@ -954,6 +964,9 @@ def render_historical_result(data):
             }
             reasoning_key = reasoning_keys.get(res_atk_type, "jailbreak_reasoning")
             attack_reasoning = attack_result_obj.get(reasoning_key, '')
+            
+            # Extract attack mitigation suggestion
+            attack_mitigation = attack_result_obj.get('mitigation_suggestions', '')
         else:
             attack_prompt = res.get('attack_prompt', '')
             agent_response = res.get('agent_response', '')
@@ -976,6 +989,9 @@ def render_historical_result(data):
             result_key = result_keys.get(res_atk_type, "jailbreak_result")
             attack_result_status = res.get(result_key, "Unknown")
             attack_reasoning = res.get('jailbreak_reasoning', '') or res.get('reasoning', '')
+            
+            # Extract attack mitigation for old format
+            attack_mitigation = res.get('mitigation_suggestions', '')
         
         score_display = float(raw_score) if raw_score is not None else 0.0
         
@@ -1052,6 +1068,11 @@ def render_historical_result(data):
             if attack_reasoning:
                 st.markdown("**Attack Reasoning:**")
                 st.caption(attack_reasoning)
+            
+            # Display attack mitigation if available
+            if attack_mitigation:
+                st.markdown("**🛠️ Attack Mitigation Suggestion:**")
+                st.info(attack_mitigation)
 
             c_a, c_b, c_c = st.columns(3)
             c_a.write(f"**Overall Result:** `{overall_result}`")
