@@ -616,7 +616,10 @@ def run_sync_test(payload):
                             with st.expander("🔧 View Agent Tool Calls"):
                                 st.json(res['tool_calls'])
 
-                        with st.expander("📄 View Raw Turn JSON"):
+                        with st.expander("� View Request Payload"):
+                            st.json(payload)
+
+                        with st.expander("�📄 View Raw Turn JSON"):
                             st.json(res)
                         
                         st.divider()
@@ -1115,6 +1118,11 @@ def render_historical_result(data):
             if res.get('tool_calls'):
                 with st.expander("🔧 View Agent Tool Calls"):
                     st.json(res['tool_calls'])
+
+            with st.expander("📤 View Request Payload"):
+                # Display the original payload if available in the data
+                original_payload = data.get('original_payload', data.get('payload', {}))
+                st.json(original_payload)
 
             with st.expander("📄 View Raw Turn JSON"):
                 st.json(res)
