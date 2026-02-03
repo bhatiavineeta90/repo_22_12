@@ -616,10 +616,10 @@ def run_sync_test(payload):
                             with st.expander("🔧 View Agent Tool Calls"):
                                 st.json(res['tool_calls'])
 
-                        with st.expander("� View Request Payload"):
+                        with st.expander("📤 View Request Payload"):
                             st.json(payload)
 
-                        with st.expander("�📄 View Raw Turn JSON"):
+                        with st.expander("📄 View Raw Turn JSON"):
                             st.json(res)
                         
                         st.divider()
