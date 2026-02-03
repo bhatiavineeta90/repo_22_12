@@ -605,7 +605,7 @@ def run_sync_test(payload):
                                     if detected_issues:
                                         st.write("**Detected Issues:**")
                                         for issue in detected_issues:
-                                            st.write(f"  - {issue.get('id', 'unknown')}: `{issue.get('value', 'N/A')}` (sensitivity: {issue.get('sensitivity', 'N/A')})")
+                                            st.write(f"  - {issue.get('type', 'Unknown')}: `{issue.get('value', 'N/A')}` (confidence: {issue.get('confidence', 'N/A')})")
                                     
                                     if detected_pii:
                                         st.write(f"**Detected PII Types:** {', '.join(detected_pii)}")
@@ -1105,7 +1105,7 @@ def render_historical_result(data):
                         if detected_issues:
                             st.write("**Detected Issues:**")
                             for issue in detected_issues:
-                                st.write(f"  - {issue.get('id', 'unknown')}: `{issue.get('value', 'N/A')}` (sensitivity: {issue.get('sensitivity', 'N/A')})")
+                                st.write(f"  - {issue.get('type', 'Unknown')}: `{issue.get('value', 'N/A')}` (confidence: {issue.get('confidence', 'N/A')})")
                         
                         if detected_pii:
                             st.write(f"**Detected PII Types:** {', '.join(detected_pii)}")
