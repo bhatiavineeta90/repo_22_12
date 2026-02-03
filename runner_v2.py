@@ -1,18 +1,6 @@
-# runner_v2.py
-"""
-Red Team Runner V2 - Uses the new payload structure with attack profiles and vulnerability profiles.
-
-This runner processes the new RedTeamPayload format without modifying the existing runner.py.
-
-Usage:
-    python runner_v2.py
-"""
-
 import os
 import sys
 
-# CRITICAL: Add lib/deepteam to path FIRST to prioritize local deepteam over pip version
-# This must be done BEFORE any deepteam-related imports
 _project_root = os.path.dirname(os.path.abspath(__file__))
 _lib_deepteam_path = os.path.join(_project_root, "lib", "deepteam")
 if os.path.exists(_lib_deepteam_path) and _lib_deepteam_path not in sys.path:
@@ -73,14 +61,6 @@ except ImportError as e:
     print(f"Warning: Could not import CrescendoJailbreakingRunner: {e}")
     CRESCENDO_JAILBREAKING_AVAILABLE = False
     CrescendoJailbreakingRunner = None
-
-try:
-    from vulnerabilities.pii_leakage_deep import PIILeakageDeep
-    PII_LEAKAGE_DEEP_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: Could not import PIILeakageDeep: {e}")
-    PII_LEAKAGE_DEEP_AVAILABLE = False
-    PIILeakageDeep = None
 
 try:
     from vulnerabilities.pii_leakage import PIILeakage
@@ -263,9 +243,7 @@ class RedTeamV2:
         self.vulnerability_checkers = {}
         
         # PII Leakage
-        if PII_LEAKAGE_DEEP_AVAILABLE:
-            self.vulnerability_checkers[VulnerabilityType.PII_LEAKAGE] = PIILeakageDeep
-        elif PII_LEAKAGE_AVAILABLE:
+        if PII_LEAKAGE_AVAILABLE:
             self.vulnerability_checkers[VulnerabilityType.PII_LEAKAGE] = PIILeakage
         
         # BOLA
@@ -918,9 +896,7 @@ class RedTeamV2:
                         vuln_results = []
                         
                         if not attack_succeeded_fully:
-                            # Attack failed or partial - skip vulnerability evaluation
-                            # Return auto "no vulnerability" for all configured profiles
-                            # Use attack's reasoning as the vulnerability reasoning
+                            
                             attack_reasoning = attack_result.get("reasoning", "Attack did not fully succeed - vulnerability check skipped")
                             
                             for vuln_profile in self.payload.vulnerability_profiles:
@@ -1461,4 +1437,3 @@ if __name__ == "__main__":
     print("\n" + "="*70)
     print("  PAIR TESTING COMPLETED!")
     print("="*70 + "\n")
-
