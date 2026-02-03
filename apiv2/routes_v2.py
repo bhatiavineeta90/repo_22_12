@@ -5,6 +5,7 @@ Provides endpoints for running tests with the new payload structure.
 """
 
 import os
+import re
 import sys
 import json
 from datetime import datetime
@@ -287,7 +288,16 @@ async def get_result_v2(run_id: str):
     
     Returns the full JSON data for the specified run ID.
     """
-    filepath = f"apiv2/results/runs/{run_id}.json"
+    # Validate run_id to prevent path traversal attacks
+    if not re.match(r'^[a-zA-Z0-9_-]+$', run_id):
+        raise HTTPException(status_code=400, detail="Invalid run_id format")
+    
+    results_dir = os.path.realpath("apiv2/results/runs")
+    filepath = os.path.realpath(os.path.join(results_dir, f"{run_id}.json"))
+    
+    # Ensure the resolved path is still within the allowed directory
+    if not filepath.startswith(results_dir):
+        raise HTTPException(status_code=400, detail="Invalid run_id")
     
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail=f"Result not found for run_id: {run_id}")
@@ -313,7 +323,16 @@ async def delete_result_v2(run_id: str):
     
     Permanently removes the result file. This action cannot be undone.
     """
-    filepath = f"apiv2/results/runs/{run_id}.json"
+    # Validate run_id to prevent path traversal attacks
+    if not re.match(r'^[a-zA-Z0-9_-]+$', run_id):
+        raise HTTPException(status_code=400, detail="Invalid run_id format")
+    
+    results_dir = os.path.realpath("apiv2/results/runs")
+    filepath = os.path.realpath(os.path.join(results_dir, f"{run_id}.json"))
+    
+    # Ensure the resolved path is still within the allowed directory
+    if not filepath.startswith(results_dir):
+        raise HTTPException(status_code=400, detail="Invalid run_id")
     
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail=f"Result not found for run_id: {run_id}")
