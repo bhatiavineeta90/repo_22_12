@@ -395,7 +395,7 @@ def normalize_suggestions(s: Any) -> Optional[str]:
 
 
 def init_attack(num_turns: int, category: str = "bias", enable_refinement: bool = True, 
-                model=None) -> BadLikertJudge:
+                max_backtracks: int = 3, model=None) -> BadLikertJudge:
     """Initialize the BadLikertJudge attack with configuration."""
     attack = BadLikertJudge(
         category=category,
