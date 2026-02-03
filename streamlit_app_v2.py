@@ -616,10 +616,7 @@ def run_sync_test(payload):
                             with st.expander("🔧 View Agent Tool Calls"):
                                 st.json(res['tool_calls'])
 
-                        with st.expander("📤 View Request Payload"):
-                            st.json(payload)
-
-                        with st.expander("📄 View Raw Turn JSON"):
+                        with st.expander(" View Raw Turn JSON"):
                             st.json(res)
                         
                         st.divider()
@@ -697,6 +694,13 @@ def run_sync_test(payload):
                 inf1.write(f"**Run ID:** `{data.get('run_id')}`")
                 inf2.write(f"**LLM Model:** `{payload['payload']['mode_constraints']['llm']}`")
                 inf3.write(f"**Total LLM Calls:** `{total_llm_calls}`")
+
+                # Display request payload and full response at the end
+                with st.expander("📤 View Request Payload"):
+                    st.json(payload)
+
+                with st.expander("📄 View Full Raw JSON Response"):
+                    st.json(data)
 
         else:
             st.error(f"Execution Error: {response.text}")
@@ -1119,18 +1123,18 @@ def render_historical_result(data):
                 with st.expander("🔧 View Agent Tool Calls"):
                     st.json(res['tool_calls'])
 
-            with st.expander("📤 View Request Payload"):
-                # Display the original payload if available in the data
-                original_payload = data.get('original_payload', data.get('payload', {}))
-                st.json(original_payload)
-
-            with st.expander("📄 View Raw Turn JSON"):
+            with st.expander("� View Raw Turn JSON"):
                 st.json(res)
             
             st.divider()
     
     
-    # Raw JSON expander outside containers
+    # Display request payload and full response at the end
+    with st.expander("📤 View Request Payload"):
+        # Display the original payload if available in the data
+        original_payload = data.get('original_payload', data.get('payload', {}))
+        st.json(original_payload)
+
     with st.expander("📄 View Full Raw JSON Response"):
         st.json(data)
 
