@@ -48,6 +48,89 @@ def get_result_details(run_id):
 
 #  UI Layout Components 
 
+def render_vulnerability_matrix(results):
+    """
+    Renders a matrix where Rows = Vulnerability Types and Columns = Attack Types
+    Cell content = Detected / Total Checks
+    """
+    if not results:
+        return
+
+    # 1. Identify all unique Attack Types and Vulnerability Types present in results
+    unique_attack_keys = sorted(list(set(res.get('attack_type', 'unknown') for res in results)))
+    
+    unique_vuln_keys = set()
+    for res in results:
+        evals = res.get('vulnerability_evaluations', [])
+        if isinstance(evals, list) and len(evals) > 0:
+            for ve in evals:
+                unique_vuln_keys.add(ve.get('vulnerability_type', 'unknown'))
+        else:
+            v_name = res.get('vulnerability_profile_name', 'vulnerability')
+            unique_vuln_keys.add(v_name.lower().replace(' detection', '').replace(' ', '_'))
+    
+    unique_vuln_keys = sorted(list(unique_vuln_keys))
+    all_row_keys = ["no_vulnerability"] + unique_vuln_keys
+
+    # 2. Initialize Matrix Data Structure
+    matrix = {v: {a: [0, 0] for a in unique_attack_keys} for v in all_row_keys}
+
+    # 3. Populate Matrix
+    for res in results:
+        atk_key = res.get('attack_type', 'unknown')
+        
+        # --- Baseline "No Vulnerability" Row ---
+        attack_result_obj = res.get('attack_result', {})
+        is_new_format = isinstance(attack_result_obj, dict) and 'attack_prompt' in attack_result_obj
+        result_keys = {
+            "prompt_injection": "prompt_injection_result", 
+            "linear_jailbreaking": "jailbreak_result", 
+            "bad_likert_judge": "likert_judge_result", 
+            "crescendo": "crescendo_result"
+        }
+        res_key = result_keys.get(atk_key, "jailbreak_result")
+        atk_status = attack_result_obj.get(res_key, "Unknown") if is_new_format else res.get(res_key, "Unknown")
+        
+        matrix["no_vulnerability"][atk_key][1] += 1
+        if atk_status == "Success":
+            matrix["no_vulnerability"][atk_key][0] += 1 
+
+        # --- Specific Vulnerability Rows ---
+        evals = res.get('vulnerability_evaluations', [])
+        if isinstance(evals, list) and len(evals) > 0:
+            for ve in evals:
+                v_key = ve.get('vulnerability_type', 'unknown')
+                if v_key in matrix:
+                    matrix[v_key][atk_key][1] += 1
+                    if ve.get('vulnerability_detected', False):
+                        matrix[v_key][atk_key][0] += 1 
+        else:
+            v_key = res.get('vulnerability_profile_name', 'vulnerability').lower().replace(' detection', '').replace(' ', '_')
+            if v_key in matrix:
+                matrix[v_key][atk_key][1] += 1
+                if res.get('vulnerability_detected', False):
+                    matrix[v_key][atk_key][0] += 1
+
+    # 4. Prepare DataFrame
+    display_data = []
+    for v_key in all_row_keys:
+        if v_key == "no_vulnerability":
+            row_label = "Attack Success (No Vulnerability)"
+        else:
+            row_label = v_key.replace('_', ' ').title()
+            
+        row = {"Vulnerability": row_label}
+        for a_key in unique_attack_keys:
+            col_name = a_key.replace('_', ' ').title()
+            detected, total = matrix[v_key][a_key]
+            row[col_name] = f"{detected}/{total}"
+        display_data.append(row)
+    
+    df = pd.DataFrame(display_data).set_index("Vulnerability")
+    
+    st.markdown("#### 🛡️ Attack vs Vulnerability Detection Matrix")
+    st.table(df)
+
 def render_sidebar():
     st.sidebar.title("RedTeam")
     st.sidebar.markdown("")
@@ -342,22 +425,14 @@ def run_sync_test(payload):
                 attack_success_count = 0
 
                 for res in results:
-                    # ============================================
-                    # DETECT FORMAT: NEW grouped vs OLD flat
-                    # NEW: has 'attack_result' as dict with nested data
-                    # OLD: has 'attack_prompt' at root level
-                    # ============================================
-                    
+                                        
                     attack_result_obj = res.get('attack_result', {})
                     is_new_format = isinstance(attack_result_obj, dict) and 'attack_prompt' in attack_result_obj
                     
                     # Extract attack type
                     res_atk_type = res.get('attack_type', '')
                     atk_label = res_atk_type.replace('_', ' ').title()
-                    
-                    # ============================================
-                    # EXTRACT ATTACK DATA (handle both formats)
-                    # ============================================
+                                        
                     if is_new_format:
                         # NEW FORMAT: attack data is nested under 'attack_result'
                         attack_prompt = attack_result_obj.get('attack_prompt', '')
@@ -393,7 +468,7 @@ def run_sync_test(payload):
                         reasoning_key = reasoning_keys.get(res_atk_type, "jailbreak_reasoning")
                         attack_reasoning = attack_result_obj.get(reasoning_key, '')
                     else:
-                        # OLD FORMAT: attack data is flat at root level
+                        
                         attack_prompt = res.get('attack_prompt', '')
                         agent_response = res.get('agent_response', '')
                         
@@ -421,10 +496,7 @@ def run_sync_test(payload):
                     # Check if attack succeeded
                     if attack_result_status == "Success":
                         attack_success_count += 1
-                    
-                    # ============================================
-                    # EXTRACT VULNERABILITY DATA (handle both formats)
-                    # ============================================
+                                        
                     vuln_evaluations = res.get('vulnerability_evaluations', [])
                     
                     if is_new_format and vuln_evaluations and isinstance(vuln_evaluations, list):
@@ -448,10 +520,7 @@ def run_sync_test(payload):
                             'vulnerability_reasoning': res.get('vulnerability_reasoning', ''),
                             'detected_pii_types': res.get('detected_pii_types', [])
                         }]
-                    
-                    # ============================================
-                    # TALLY FOR SUMMARY (using overall_result)
-                    # ============================================
+                                        
                     overall_result = res.get('overall_result', '')
                     
                     if 'CRITICAL' in overall_result:
@@ -467,9 +536,7 @@ def run_sync_test(payload):
                     else:
                         pass_cnt += 1
 
-                    # ============================================
-                    # RENDER TURN RESULT
-                    # ============================================
+                    
                     with results_container:
                         color = "#ff4b4b" if any_vuln_detected or 'CRITICAL' in overall_result or 'HIGH' in overall_result else "#28a745"
                         
@@ -503,9 +570,7 @@ def run_sync_test(payload):
                         c_b.write(f"**Attack Score:** `{score_display}/10`")
                         c_c.write(f"**Attack Status:** `{attack_result_status}`")
                         
-                        # ============================================
-                        # DISPLAY EACH VULNERABILITY EVALUATION
-                        # ============================================
+                        
                         if vuln_evaluations:
                             st.markdown("---")
                             st.markdown("**🛡️ Vulnerability Evaluations:**")
