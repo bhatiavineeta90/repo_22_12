@@ -382,6 +382,13 @@ def run_sync_test(payload):
     status_msg = st.empty()
     progress_bar = st.progress(0)
 
+    # Request JSON
+    with st.expander("View Request JSON"):
+        st.json(payload)
+    
+    # Response JSON placeholder
+    response_json_placeholder = st.empty()
+
     col1, col2 = st.columns([1, 2])
     with col1:
         st.caption("System Logs")
@@ -407,6 +414,10 @@ def run_sync_test(payload):
                 data = response.json()
                 log_container.write(f"✅ Success. Run ID: {data['run_id']}")
                 log_container.write(f"Results saved to: {data.get('artifacts', {}).get('json_path')}")
+                
+                # Display Response JSON
+                with response_json_placeholder.expander("View Response JSON"):
+                    st.json(data)
                 
                 results = data.get('results', [])
                 
@@ -695,13 +706,6 @@ def run_sync_test(payload):
                 inf2.write(f"**LLM Model:** `{payload['payload']['mode_constraints']['llm']}`")
                 inf3.write(f"**Total LLM Calls:** `{total_llm_calls}`")
 
-                # Display request payload and full response at the end
-                with st.expander("📤 View Request Payload"):
-                    st.json(payload)
-
-                with st.expander("📄 View Full Raw JSON Response"):
-                    st.json(data)
-
         else:
             st.error(f"Execution Error: {response.text}")
     except Exception as e:
@@ -794,13 +798,18 @@ def render_history():
 def render_historical_result(data):
     """Render historical result with same UI as live execution"""
     st.divider()
-    # st.subheader(f"📋 Report: {data.get('suite_name', 'Unnamed Suite')}")
+    
+    # Display Request and Response JSON at the top
+    with st.expander("View Request JSON"):
+        st.json(data.get('payload', data.get('original_payload', {})))
+    
+    with st.expander("View Response JSON"):
+        st.json(data)
     
     results = data.get('results', [])
     
     if not results:
         st.warning("No turn results found in this report.")
-        st.json(data)
         return
     
     # ====
@@ -1123,20 +1132,10 @@ def render_historical_result(data):
                 with st.expander("🔧 View Agent Tool Calls"):
                     st.json(res['tool_calls'])
 
-            with st.expander("� View Raw Turn JSON"):
+            with st.expander("📄 View Raw Turn JSON"):
                 st.json(res)
             
             st.divider()
-    
-    
-    # Display request payload and full response at the end
-    with st.expander("📤 View Request Payload"):
-        # Display the original payload if available in the data
-        original_payload = data.get('original_payload', data.get('payload', {}))
-        st.json(original_payload)
-
-    with st.expander("📄 View Full Raw JSON Response"):
-        st.json(data)
 
 def main():
     render_sidebar()
