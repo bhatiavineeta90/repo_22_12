@@ -225,8 +225,7 @@ def detect_guardrail_with_llm(attack_prompt: str, agent_response: str, model=Non
 
     """
     Use LLM to detect if the agent response is a GUARDRAIL (attack failed) or BYPASS (attack succeeded).
-    
-    100% LLM-based - no regex or hardcoded phrase lists.
+
     
     Returns:
         Tuple of (is_guardrail, reason)
@@ -509,7 +508,6 @@ def step_judge(attack: LinearJailbreaking, initial: str, enhanced: str,
                agent_response: str, model=None, purpose: str = "utility customer service assistant") -> Tuple[Optional[float], str, Dict]:
     """
     Enhanced judge function with LLM-based guardrail detection and multi-metric evaluation.
-    100% LLM-based - no regex or hardcoded patterns.
     
     Flow:
     1. Check for guardrail using LLM (if detected, return score 1 immediately)
