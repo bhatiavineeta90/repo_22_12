@@ -1,13 +1,3 @@
-# database/models.py
-"""
-Data models for MongoDB collections.
-Matches the schema from user's design:
-- rt_runs: Master run records
-- rt_results: Individual turn results  
-- rt_attack_execution: Attack progress tracking
-- rt_vulnerability_execution: Vulnerability check tracking
-"""
-
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -45,9 +35,9 @@ class VulnerabilitySeverity(str, Enum):
     CRITICAL = "critical"
 
 
-# ============================================================
+ 
 #  rt_runs - Master Run Record
-# ============================================================
+ 
 
 @dataclass
 class RTRun:
@@ -80,9 +70,9 @@ class RTRun:
         return cls(**{k: v for k, v in data.items() if k != '_id'})
 
 
-# ============================================================
+ 
 #  rt_results - Per-Turn Results
-# ============================================================
+ 
 
 @dataclass
 class RTResult:
@@ -130,9 +120,9 @@ class RTResult:
         return cls(**{k: v for k, v in data.items() if k != '_id'})
 
 
-# ============================================================
+ 
 #  rt_attack_execution - Attack Progress Tracking
-# ============================================================
+ 
 
 @dataclass
 class RTAttackExecution:
@@ -167,9 +157,9 @@ class RTAttackExecution:
         return cls(**{k: v for k, v in data.items() if k != '_id'})
 
 
-# ============================================================
+ 
 #  rt_vulnerability_execution - Vulnerability Check Tracking
-# ============================================================
+ 
 
 @dataclass
 class RTVulnerabilityExecution:
