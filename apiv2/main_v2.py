@@ -1,17 +1,3 @@
-# apiv2/main_v2.py
-"""
-FastAPI application for the RedTeam V2 Testing System.
-
-This API V2 provides endpoints for:
-- Running vulnerability tests with the new RedTeamPayload structure
-- Streaming test results in real-time via SSE
-- Getting sample payloads for testing
-- Validating payload structure
-- Listing and retrieving test results
-
-Run with: python -m uvicorn apiv2.main_v2:app_v2 --reload --port 8001
-"""
-
 import os
 import sys
 
@@ -19,8 +5,7 @@ import sys
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _project_root)
 
-# CRITICAL: Add lib/deepteam to path to prioritize local deepteam over pip version
-# This must be done BEFORE any deepteam-related imports (via routes or runner)
+
 _lib_deepteam_path = os.path.join(_project_root, "lib", "deepteam")
 if os.path.exists(_lib_deepteam_path) and _lib_deepteam_path not in sys.path:
     sys.path.insert(0, _lib_deepteam_path)
@@ -35,9 +20,9 @@ import config
 from apiv2.routes_v2 import router_v2
 
 
-# ============================================================
+
 #  FastAPI Application Setup
-# ============================================================
+
 
 app_v2 = FastAPI(
     title="RedTeam V2 API",
@@ -144,9 +129,9 @@ The `/test/stream` endpoint provides real-time updates:
 )
 
 
-# ============================================================
+
 #  CORS Middleware
-# ============================================================
+
 
 app_v2.add_middleware(
     CORSMiddleware,
@@ -157,9 +142,9 @@ app_v2.add_middleware(
 )
 
 
-# ============================================================
+
 #  Exception Handlers
-# ============================================================
+
 
 @app_v2.exception_handler(Exception)
 async def global_exception_handler(request, exc):
@@ -173,16 +158,16 @@ async def global_exception_handler(request, exc):
     )
 
 
-# ============================================================
+
 #  Include Routers
-# ============================================================
+
 
 app_v2.include_router(router_v2)
 
 
-# ============================================================
+
 #  Root Endpoint
-# ============================================================
+
 
 @app_v2.get("/", tags=["Root"])
 async def root():
@@ -206,9 +191,9 @@ async def root():
     }
 
 
-# ============================================================
+
 #  Entry Point
-# ============================================================
+
 
 if __name__ == "__main__":
     import uvicorn
