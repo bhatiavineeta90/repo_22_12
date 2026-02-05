@@ -1,9 +1,3 @@
-# database/mongo_service.py
-"""
-MongoDB Service for Red Team Testing.
-Handles all database operations with real-time status updates.
-"""
-
 import os
 import configparser
 from datetime import datetime, timezone
@@ -23,9 +17,9 @@ from database.models import (
 )
 
 
-# ============================================================
+ 
 #  Configuration Loading
-# ============================================================
+ 
 
 def _load_config():
     """Load MongoDB configuration from config.ini file."""
@@ -88,9 +82,9 @@ class MongoDBService:
         if auto_connect:
             self.connect()
     
-    # ============================================================
+     
     #  Connection Management
-    # ============================================================
+     
     
     def connect(self) -> bool:
         """Connect to MongoDB server."""
@@ -158,9 +152,9 @@ class MongoDBService:
         except Exception as e:
             print(f"⚠️ Index creation warning: {e}")
     
-    # ============================================================
+     
     #  Run Operations (rt_runs)
-    # ============================================================
+     
     
     def create_run(self, run: RTRun) -> str:
         """Create a new run record."""
@@ -231,9 +225,9 @@ class MongoDBService:
             print(f"❌ Failed to get recent runs: {e}")
             return []
     
-    # ============================================================
+     
     #  Result Operations (rt_results)
-    # ============================================================
+     
     
     def insert_result(self, result: RTResult) -> bool:
         """Insert a single turn result."""
@@ -275,9 +269,9 @@ class MongoDBService:
             print(f"❌ Failed to get latest results: {e}")
             return []
     
-    # ============================================================
+     
     #  Attack Execution Operations (rt_attack_execution)
-    # ============================================================
+     
     
     def create_attack_execution(self, execution: RTAttackExecution) -> bool:
         """Create attack execution record."""
@@ -366,9 +360,9 @@ class MongoDBService:
             print(f"❌ Failed to get attack executions: {e}")
             return []
     
-    # ============================================================
+     
     #  Vulnerability Execution Operations (rt_vulnerability_execution)
-    # ============================================================
+     
     
     def create_vulnerability_execution(self, execution: RTVulnerabilityExecution) -> bool:
         """Create vulnerability execution record."""
@@ -439,9 +433,9 @@ class MongoDBService:
             print(f"❌ Failed to get vulnerability execution: {e}")
             return None
     
-    # ============================================================
+     
     #  Aggregate Queries for Dashboard
-    # ============================================================
+     
     
     def get_run_summary(self, run_id: str) -> Dict[str, Any]:
         """Get complete run summary including all stats."""
@@ -500,12 +494,12 @@ class MongoDBService:
             return []
 
 
-# ============================================================
+ 
 #  Helper Functions
-# ============================================================
+ 
 
 def generate_result_id(run_id: str, attack_profile_id: int, session_id: str, turn: int) -> str:
-    """Generate deterministic result ID."""
+    """Generate result ID."""
     return f"{run_id}:{attack_profile_id}:{session_id}:{turn}"
 
 
