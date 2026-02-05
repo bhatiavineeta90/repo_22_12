@@ -1,17 +1,11 @@
-# apiv2/models_v2.py
-"""
-Pydantic models for API V2 request/response validation.
-Uses the RedTeamPayload structure from models.payload_models.
-"""
-
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from enum import Enum
 
 
-# ============================================================
+
 #  Re-export payload models for convenience
-# ============================================================
+
 
 from models.payload_models import (
     RedTeamPayload,
@@ -32,9 +26,9 @@ from models.payload_models import (
 )
 
 
-# ============================================================
+
 #  Request Models V2
-# ============================================================
+
 
 class TestRunRequestV2(BaseModel):
     """
@@ -169,9 +163,9 @@ class QuickTestRequestV2(BaseModel):
         }
 
 
-# ============================================================
+
 #  Response Models V2
-# ============================================================
+
 
 class HealthResponseV2(BaseModel):
     """Health check response for V2 API."""
@@ -232,9 +226,9 @@ class PayloadValidationResponseV2(BaseModel):
     payload_id: Optional[str] = None
 
 
-# ============================================================
+
 #  Sample Payloads
-# ============================================================
+
 
 SAMPLE_PAYLOAD_PII_LEAKAGE = {
     "_id": "rt-sample-pii-001",
