@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 import csv
 
-# Import the new payload models
+
 from models.payload_models import (
     RedTeamPayload,
     AttackProfile,
@@ -101,9 +101,8 @@ get_storage = None
 StorageHelper = None
 
 
-# ============================================================
+
 #  Result Storage Functions
-# ============================================================
 
 def write_run_json(run_id: str, data: Dict[str, Any]) -> str:
     """Write run results to JSON file."""
@@ -125,16 +124,14 @@ def append_csv(data: List[Dict[str, Any]], filename: str = "all_results_v2.csv")
         return filepath
     
     file_exists = os.path.exists(filepath)
-    
-    # Get all possible fieldnames
+        
     fieldnames = []
     if file_exists and os.path.getsize(filepath) > 0:
         with open(filepath, 'r', newline='') as rf:
             reader = csv.DictReader(rf)
             existing_fieldnames = reader.fieldnames or []
             fieldnames = list(existing_fieldnames)
-    
-    # Add any new fields from data
+        
     for row in data:
         for key in row.keys():
             if key not in fieldnames:
@@ -165,13 +162,10 @@ def generate_run_id(payload_id: Optional[str] = None) -> str:
 
 
 
-# ============================================================
-#  RedTeam V2 Runner
-# ============================================================
+
 
 class RedTeamV2:
     """
-    Red Team V2 orchestrator using the new payload structure.
     Processes attack_profiles and vulnerability_profiles from RedTeamPayload.
     """
     
@@ -196,12 +190,12 @@ class RedTeamV2:
         #     try:
         #         self.storage = get_storage()
         #         if self.storage.enabled:
-        #             print("📊 MongoDB storage enabled")
+        #             print("MongoDB storage enabled")
         #         else:
-        #             print("⚠️ MongoDB storage not connected (results will only save to files)")
+        #             print(" MongoDB storage not connected (results will only save to files)")
         #             self.storage = None
         #     except Exception as e:
-        #         print(f"⚠️ MongoDB storage init failed: {e}")
+        #         print(f" MongoDB storage init failed: {e}")
         #         self.storage = None
         
         self._init_attack_runners()
@@ -689,8 +683,7 @@ class RedTeamV2:
     ) -> Dict[str, Any]:
         """
         Merge attack result with ALL vulnerability evaluations for a single turn.
-        NEW GROUPED FORMAT: One row per turn, vulnerabilities nested as array.
-        
+                
         Args:
             attack_result: Attack result for this turn
             vuln_results: List of vulnerability evaluation results for this turn
@@ -755,7 +748,7 @@ class RedTeamV2:
             # Turn info
             "turn": attack_result.get("turn"),
             
-            # Attack result (nested object - single per turn)
+            # Attack result
             "attack_result": {
                 "attack_prompt": attack_result.get("attack_prompt"),
                 "agent_response": attack_result.get("agent_response"),
@@ -767,7 +760,7 @@ class RedTeamV2:
                 "mitigation_suggestions": attack_result.get("mitigation_suggestions"),
             },
             
-            # Vulnerability evaluations (nested array - all vulns for this turn)
+            # Vulnerability evaluations
             "vulnerability_evaluations": [
                 {
                     "vulnerability_type": v.get("vulnerability_type"),
@@ -855,7 +848,7 @@ class RedTeamV2:
             )
             print(f"📊 Run {run_id} started in MongoDB")
         
-        # Check mode
+        
         allowed_modes = self.payload.mode_constraints.allowed_modes
         run_attacks = AllowedMode.ATTACK_ONLY in allowed_modes or \
                      AllowedMode.ATTACK_AND_VULNERABILITY_CHECKS in allowed_modes
@@ -922,7 +915,7 @@ class RedTeamV2:
                                 )
                                 vuln_results.append(vuln_result)
                         
-                        # NEW: Merge all vulnerabilities into ONE turn result
+                        # Merge all vulnerabilities into ONE turn result
                         grouped_result = self.merge_turn_with_vulnerabilities(
                             attack_result,
                             vuln_results,
@@ -930,7 +923,7 @@ class RedTeamV2:
                         )
                         all_results.append(grouped_result)
                         
-                        # Save to MongoDB storage (if enabled)
+                        # Save to MongoDB storage 
                         if self.storage:
                             # Save the grouped result
                             self._save_result_to_storage(grouped_result, run_id, attack_profile, None)
@@ -1029,7 +1022,7 @@ class RedTeamV2:
         vuln_detected_count = 0
         
         for r in results:
-            # NEW: Check for attack success in nested attack_result
+            # Check for attack success in nested attack_result
             attack_res = r.get("attack_result", {})
             for key in attack_res.keys():
                 if key.endswith("_result") and attack_res[key] == "Success":
@@ -1173,7 +1166,7 @@ class RedTeamV2:
                 raw_result=merged,
             )
         except Exception as e:
-            print(f"    ⚠️ Storage save error: {e}")
+            print(f"     Storage save error: {e}")
     
     def _determine_risk_level(self, summary: Dict[str, Any]) -> str:
         """Determine overall risk level from summary stats."""
@@ -1188,14 +1181,11 @@ class RedTeamV2:
         return "none"
 
 
-# ============================================================
-#  Convenience Function
-# ============================================================
+
 
 def run_red_team_v2(payload: RedTeamPayload) -> Tuple[str, List[Dict[str, Any]]]:
     """
-    Convenience function to run red team tests with new payload format.
-    
+        
     Args:
         payload: RedTeamPayload configuration
         
@@ -1206,9 +1196,8 @@ def run_red_team_v2(payload: RedTeamPayload) -> Tuple[str, List[Dict[str, Any]]]
     return runner.run()
 
 
-# ============================================================
-#  Example Usage
-# ============================================================
+
+
 
 if __name__ == "__main__":
     from models.payload_models import (
@@ -1234,7 +1223,7 @@ if __name__ == "__main__":
     print("  RED TEAM V2 - ATTACK-VULNERABILITY PAIR TESTING")
     print("="*70)
     
-    # ==================== Define All Attack Profiles ====================
+    #  Define All Attack Profiles 
     ALL_ATTACKS = [
         AttackProfile(
             id=1,
@@ -1283,7 +1272,7 @@ if __name__ == "__main__":
         ),
     ]
     
-    # ==================== Define All Vulnerability Profiles ====================
+    # Define All Vulnerability Profiles
     ALL_VULNERABILITIES = [
         VulnerabilityProfile(
             id=101,
@@ -1323,7 +1312,7 @@ if __name__ == "__main__":
         ),
     ]
     
-    # ==================== Create All Pairs ====================
+    #  Create All Pairs 
     pairs = list(itertools.product(ALL_ATTACKS, ALL_VULNERABILITIES))
     
     print(f"\n📋 Testing {len(pairs)} Attack-Vulnerability Pairs:")
@@ -1332,7 +1321,7 @@ if __name__ == "__main__":
         print(f"  Pair {i}: {attack.name} + {vuln.name}")
     print("-" * 50)
     
-    # ==================== Run Each Pair ====================
+    #  Run Each Pair 
     all_pair_results = []
     pair_summaries = []
     
@@ -1398,12 +1387,12 @@ if __name__ == "__main__":
                 "jailbreaks_successful": 0,
             })
         
-        # Add delay between pairs to avoid rate limiting
-        if pair_idx < len(pairs):
-            print("\n Waiting 15 seconds before next pair (rate limit)...")
-            time.sleep(15)
+        # # Add delay between pairs to avoid rate limiting
+        # if pair_idx < len(pairs):
+        #     print("\n Waiting 15 seconds before next pair (rate limit)")
+        #     time.sleep(15)
     
-    # ==================== Final Summary ====================
+    #  Final Summary 
     print("\n\n" + "="*90)
     print("  FINAL RESULTS - ALL ATTACK-VULNERABILITY PAIRS")
     print("="*90)
