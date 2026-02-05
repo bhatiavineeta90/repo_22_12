@@ -1,9 +1,3 @@
-# database/storage_helper.py
-"""
-Storage Helper for easy integration with attack runners.
-Provides high-level functions to save results during attack execution.
-"""
-
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -35,9 +29,9 @@ class StorageHelper:
         """Check if storage is enabled (MongoDB connected)."""
         return self.db and self.db.is_connected()
     
-    # ============================================================
+     
     #  Run Management
-    # ============================================================
+     
     
     def start_run(
         self,
@@ -127,9 +121,9 @@ class StorageHelper:
             error=error,
         )
     
-    # ============================================================
+     
     #  Attack Execution Tracking
-    # ============================================================
+     
     
     def start_attack(self, run_id: str, attack_profile_id: int) -> bool:
         """Mark attack as started. Call before running attack."""
@@ -162,9 +156,9 @@ class StorageHelper:
             best_score=best_score,
         )
     
-    # ============================================================
+     
     #  Per-Turn Result Saving
-    # ============================================================
+     
     
     def save_turn_result(
         self,
@@ -279,9 +273,9 @@ class StorageHelper:
         
         return saved
     
-    # ============================================================
+     
     #  Vulnerability Tracking
-    # ============================================================
+     
     
     def start_vulnerability_check(self, run_id: str, vulnerability_profile_id: int) -> bool:
         """Mark vulnerability check as started."""
@@ -334,10 +328,6 @@ class StorageHelper:
             highest_severity=highest_severity or VulnerabilitySeverity.NONE.value,
         )
 
-
-# ============================================================
-#  Singleton Helper
-# ============================================================
 
 _storage_helper: Optional[StorageHelper] = None
 
