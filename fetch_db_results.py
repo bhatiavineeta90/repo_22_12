@@ -1,9 +1,3 @@
-# fetch_db_results.py
-"""
-Fetch and display stored results from MongoDB.
-Usage: python fetch_db_results.py [run_id]
-"""
-
 import sys
 import json
 from datetime import datetime
@@ -95,11 +89,11 @@ def fetch_run_details(run_id: str):
     print(f"Total turns: {len(results)}\n")
     
     for result in results[-10:]:  # Show last 10
-        score = result.get("jailbreak_score", 0)
-        jb_result = result.get("jailbreak_result", "?")
+        score = result.get("attack_score", 0)
+        atk_result = result.get("attack_result", "?")
         vuln = "🔴" if result.get("vulnerability_detected") else "🟢"
         
-        print(f"Turn {result.get('turn')}: Score={score:.1f}, Result={jb_result}, Vuln={vuln}")
+        print(f"Turn {result.get('turn')}: Score={score:.1f}, Result={atk_result}, Vuln={vuln}")
         print(f"   Attack: {result.get('attack_prompt', '')[:60]}...")
         print(f"   Overall: {result.get('overall_result')}")
         print()

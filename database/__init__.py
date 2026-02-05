@@ -1,9 +1,3 @@
-# database/__init__.py
-"""
-Database module for Red Team testing results storage.
-Provides MongoDB integration for real-time result tracking.
-"""
-
 from database.mongo_service import (
     MongoDBService,
     get_db,
@@ -17,7 +11,7 @@ from database.models import (
     RTVulnerabilityExecution,
     RunStatus,
     OverallResult,
-    JailbreakResult,
+    AttackResult,
     VulnerabilitySeverity,
 )
 from database.storage_helper import (
@@ -38,7 +32,7 @@ __all__ = [
     'RTVulnerabilityExecution',
     'RunStatus',
     'OverallResult',
-    'JailbreakResult',
+    'AttackResult',
     'VulnerabilitySeverity',
     # Helper
     'StorageHelper',

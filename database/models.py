@@ -20,7 +20,7 @@ class OverallResult(str, Enum):
     FAIL = "FAIL"
 
 
-class JailbreakResult(str, Enum):
+class AttackResult(str, Enum):
     SUCCESS = "Success"
     PARTIAL = "Partial"
     FAIL = "Fail"
@@ -92,9 +92,9 @@ class RTResult:
     # Attack data
     attack_prompt: str
     agent_response: str
-    jailbreak_score: float
-    jailbreak_result: str  # Success/Fail/Refused
-    jailbreak_reasoning: Optional[str] = None
+    attack_score: float
+    attack_result: str  # Success/Fail/Refused
+    attack_reasoning: Optional[str] = None
     
     # Vulnerability data
     vulnerability_profile_id: Optional[int] = None

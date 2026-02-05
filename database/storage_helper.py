@@ -10,7 +10,7 @@ from database.models import (
     RTVulnerabilityExecution,
     RunStatus,
     OverallResult,
-    JailbreakResult,
+    AttackResult,
     VulnerabilitySeverity,
 )
 
@@ -173,9 +173,9 @@ class StorageHelper:
         temperature: float,
         attack_prompt: str,
         agent_response: str,
-        jailbreak_score: float,
-        jailbreak_result: str,
-        jailbreak_reasoning: str = None,
+        attack_score: float,
+        attack_result: str,
+        attack_reasoning: str = None,
         # Vulnerability fields (optional)
         vulnerability_profile_id: int = None,
         vulnerability_profile_name: str = None,
@@ -202,9 +202,9 @@ class StorageHelper:
         
         # Determine overall result
         if overall_result is None:
-            if jailbreak_result == JailbreakResult.SUCCESS.value:
+            if attack_result == AttackResult.SUCCESS.value:
                 overall_result = OverallResult.HIGH.value
-            elif jailbreak_result == JailbreakResult.PARTIAL.value:
+            elif attack_result == AttackResult.PARTIAL.value:
                 overall_result = OverallResult.MEDIUM.value
             else:
                 overall_result = OverallResult.FAIL.value
@@ -224,9 +224,9 @@ class StorageHelper:
             temperature=temperature,
             attack_prompt=attack_prompt,
             agent_response=agent_response,
-            jailbreak_score=jailbreak_score,
-            jailbreak_result=jailbreak_result,
-            jailbreak_reasoning=jailbreak_reasoning,
+            attack_score=attack_score,
+            attack_result=attack_result,
+            attack_reasoning=attack_reasoning,
             vulnerability_profile_id=vulnerability_profile_id,
             vulnerability_profile_name=vulnerability_profile_name,
             vulnerability_detected=vulnerability_detected,
@@ -243,7 +243,7 @@ class StorageHelper:
         
         # Update attack execution progress
         if saved:
-            is_success = jailbreak_result == JailbreakResult.SUCCESS.value
+            is_success = attack_result == AttackResult.SUCCESS.value
             
             # Get current execution to increment counts
             exec_doc = self.db.get_attack_execution(run_id, attack_profile_id)
@@ -256,7 +256,7 @@ class StorageHelper:
                 update_kwargs = {
                     "turns_completed": current_turns + 1,
                     "last_turn_written": turn,
-                    "best_score": max(current_best, jailbreak_score),
+                    "best_score": max(current_best, attack_score),
                 }
                 
                 if is_success:
