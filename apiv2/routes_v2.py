@@ -1,11 +1,4 @@
-# apiv2/routes_v2.py
-"""
-API V2 routes for the RedTeam V2 runner.
-Provides endpoints for running tests with the new payload structure.
-"""
-
 import os
-import re
 import sys
 import json
 from datetime import datetime
@@ -14,7 +7,7 @@ from typing import List, Dict, Any, Generator
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-# Add project root to path for imports
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from apiv2.models_v2 import (
@@ -36,9 +29,9 @@ from models.payload_models import (
 router_v2 = APIRouter(prefix="/api/v2", tags=["Testing API V2"])
 
 
-# ============================================================
+
 #  Health Check
-# ============================================================
+
 
 @router_v2.get("/health", response_model=HealthResponseV2)
 async def health_check_v2():
@@ -50,9 +43,9 @@ async def health_check_v2():
     )
 
 
-# ============================================================
+
 #  Run Test V2 (Full Payload)
-# ============================================================
+
 
 @router_v2.post("/test/run", response_model=TestRunResponseV2)
 async def run_test_v2(request: TestRunRequestV2):
@@ -100,9 +93,9 @@ async def run_test_v2(request: TestRunRequestV2):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ============================================================
+
 #  Run Test with Streaming (Server-Sent Events)
-# ============================================================
+
 
 def generate_sse_events_v2(request: TestRunRequestV2) -> Generator[str, None, None]:
     """Generator function that yields SSE events for streaming test results with detailed steps."""
@@ -225,9 +218,9 @@ async def stream_test_v2(request: TestRunRequestV2):
     )
 
 
-# ============================================================
+
 #  List Results V2
-# ============================================================
+
 
 @router_v2.get("/results", response_model=ResultsListResponseV2)
 async def list_results_v2():
@@ -277,9 +270,9 @@ async def list_results_v2():
     return ResultsListResponseV2(total_count=len(result_files), results=result_files)
 
 
-# ============================================================
+
 #  Get Specific Result V2
-# ============================================================
+
 
 @router_v2.get("/results/{run_id}")
 async def get_result_v2(run_id: str):
@@ -288,16 +281,7 @@ async def get_result_v2(run_id: str):
     
     Returns the full JSON data for the specified run ID.
     """
-    # Validate run_id to prevent path traversal attacks
-    if not re.match(r'^[a-zA-Z0-9_-]+$', run_id):
-        raise HTTPException(status_code=400, detail="Invalid run_id format")
-    
-    results_dir = os.path.realpath("apiv2/results/runs")
-    filepath = os.path.realpath(os.path.join(results_dir, f"{run_id}.json"))
-    
-    # Ensure the resolved path is still within the allowed directory
-    if not filepath.startswith(results_dir):
-        raise HTTPException(status_code=400, detail="Invalid run_id")
+    filepath = f"apiv2/results/runs/{run_id}.json"
     
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail=f"Result not found for run_id: {run_id}")
@@ -312,9 +296,9 @@ async def get_result_v2(run_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ============================================================
+
 #  Delete Result V2
-# ============================================================
+
 
 @router_v2.delete("/results/{run_id}")
 async def delete_result_v2(run_id: str):
@@ -323,16 +307,7 @@ async def delete_result_v2(run_id: str):
     
     Permanently removes the result file. This action cannot be undone.
     """
-    # Validate run_id to prevent path traversal attacks
-    if not re.match(r'^[a-zA-Z0-9_-]+$', run_id):
-        raise HTTPException(status_code=400, detail="Invalid run_id format")
-    
-    results_dir = os.path.realpath("apiv2/results/runs")
-    filepath = os.path.realpath(os.path.join(results_dir, f"{run_id}.json"))
-    
-    # Ensure the resolved path is still within the allowed directory
-    if not filepath.startswith(results_dir):
-        raise HTTPException(status_code=400, detail="Invalid run_id")
+    filepath = f"apiv2/results/runs/{run_id}.json"
     
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail=f"Result not found for run_id: {run_id}")
