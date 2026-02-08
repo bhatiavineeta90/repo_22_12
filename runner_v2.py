@@ -88,24 +88,26 @@ except ImportError as e:
     StorageHelper = None
 
 
+from config import RESULTS_DIR, REPORTS_DIR
+
 def write_run_json(run_id, data):
-    os.makedirs("apiv2/results/runs", exist_ok=True)
-    filepath = f"apiv2/results/runs/{run_id}.json"
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    filepath = RESULTS_DIR / f"{run_id}.json"
     with open(filepath, 'w') as f:
         json.dump(data, f, indent=2, default=str)
-    return filepath
+    return str(filepath)
 
 
 def append_csv(data, filename="all_results_v2.csv"):
-    os.makedirs("apiv2/results/reports", exist_ok=True)
-    filepath = f"apiv2/results/reports/{filename}"
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    filepath = REPORTS_DIR / filename
     if not data:
-        return filepath
+        return str(filepath)
 
-    file_exists = os.path.exists(filepath)
+    file_exists = filepath.exists()
     fieldnames = []
 
-    if file_exists and os.path.getsize(filepath) > 0:
+    if file_exists and filepath.stat().st_size > 0:
         with open(filepath, 'r', newline='') as rf:
             reader = csv.DictReader(rf)
             existing_fieldnames = reader.fieldnames or []
@@ -121,11 +123,11 @@ def append_csv(data, filename="all_results_v2.csv"):
 
     with open(filepath, 'a', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
-        if not file_exists or os.path.getsize(filepath) == 0:
+        if not file_exists or filepath.stat().st_size == 0:
             writer.writeheader()
         for row in data:
             writer.writerow(row)
-    return filepath
+    return str(filepath)
 
 
 def generate_run_id(payload_id=None):

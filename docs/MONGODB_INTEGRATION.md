@@ -3,7 +3,15 @@
 **Version:** 1.0  
 **Last Updated:** 2026-02-08  
 **Project:** RedTeam V2
+red_circle = "\U0001F534"      # 🔴
+green_circle = "\U0001F7E2"    # 🟢
+yellow_circle = "\U0001F7E1"   # 🟡
+warning = "\u26A0\uFE0F"       # ⚠️
+red_x = "\u274C"               # ❌
+green_check = "\u2705"         # ✅
 
+print(f"{red_circle} VULNERABLE")
+print(f"{green_circle} SECURE")
 ---
 
 ## Table of Contents
