@@ -1,8 +1,7 @@
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
+from dataclasses import dataclass, asdict
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from enum import Enum
-import json
 
 
 class RunStatus(str, Enum):
@@ -35,13 +34,27 @@ class VulnerabilitySeverity(str, Enum):
     CRITICAL = "critical"
 
 
- 
-#  rt_runs - Master Run Record
- 
+class SerializableMixin:
+    """Provides to_dict/from_dict for MongoDB serialization."""
+    _datetime_fields = ('started_at', 'completed_at', 'timestamp')
 
+    def to_dict(self):
+        d = asdict(self)
+        # convert datetime to ISO string
+        for field in self._datetime_fields:
+            if val := d.get(field):
+                d[field] = val.isoformat() if isinstance(val, datetime) else val
+        return d
+
+    @classmethod
+    def from_dict(cls, data):
+        # filter out mongodb _id field
+        return cls(**{k: v for k, v in data.items() if k != '_id'})
+
+
+# master run record
 @dataclass
-class RTRun:
-    """Master run record - tracks overall execution."""
+class RTRun(SerializableMixin):
     run_id: str
     payload_id: str
     payload_name: str
@@ -55,29 +68,12 @@ class RTRun:
     overall_success_rate: Optional[float] = None
     overall_risk_level: Optional[str] = None
     error: Optional[str] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
-        d = asdict(self)
-        # Convert datetime to ISO format for MongoDB
-        if d.get('started_at'):
-            d['started_at'] = d['started_at'].isoformat() if isinstance(d['started_at'], datetime) else d['started_at']
-        if d.get('completed_at'):
-            d['completed_at'] = d['completed_at'].isoformat() if isinstance(d['completed_at'], datetime) else d['completed_at']
-        return d
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RTRun":
-        return cls(**{k: v for k, v in data.items() if k != '_id'})
 
 
- 
-#  rt_results - Per-Turn Results
- 
-
+# per-turn result record
 @dataclass
-class RTResult:
-    """Individual turn result - stores attack and vulnerability data per turn."""
-    result_id: str  # Deterministic: {run_id}:{attack_profile_id}:{session_id}:{turn}
+class RTResult(SerializableMixin):
+    result_id: str  # format: {run_id}:{attack_profile_id}:{session_id}:{turn}
     run_id: str
     payload_id: str
     attack_profile_id: int
@@ -88,15 +84,13 @@ class RTResult:
     timestamp: datetime
     llm_provider: str
     temperature: float
-    
-    # Attack data
+    # attack data
     attack_prompt: str
     agent_response: str
     attack_score: float
-    attack_result: str  # Success/Fail/Refused
+    attack_result: str
     attack_reasoning: Optional[str] = None
-    
-    # Vulnerability data
+    # vulnerability data
     vulnerability_profile_id: Optional[int] = None
     vulnerability_profile_name: Optional[str] = None
     vulnerability_detected: bool = False
@@ -104,29 +98,17 @@ class RTResult:
     vulnerability_severity: str = VulnerabilitySeverity.NONE.value
     vulnerability_reasoning: Optional[str] = None
     detected_pii_types: Optional[List[str]] = None
-    
-    # Overall
+    # mitigations
+    attack_mitigation_suggestions: Optional[str] = None
+    vulnerability_mitigation_suggestions: Optional[str] = None
+    # overall
     overall_result: str = OverallResult.FAIL.value
-    result_json: Optional[str] = None  # Full raw result object
-    
-    def to_dict(self) -> Dict[str, Any]:
-        d = asdict(self)
-        if d.get('timestamp'):
-            d['timestamp'] = d['timestamp'].isoformat() if isinstance(d['timestamp'], datetime) else d['timestamp']
-        return d
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RTResult":
-        return cls(**{k: v for k, v in data.items() if k != '_id'})
+    result_json: Optional[str] = None
 
 
- 
-#  rt_attack_execution - Attack Progress Tracking
- 
-
+# attack execution tracking (for real-time progress)
 @dataclass
-class RTAttackExecution:
-    """Attack execution status - for real-time progress tracking."""
+class RTAttackExecution(SerializableMixin):
     run_id: str
     attack_profile_id: int
     attack_name: str
@@ -139,31 +121,13 @@ class RTAttackExecution:
     success_turns: int = 0
     last_turn_written: Optional[int] = None
     last_error: Optional[str] = None
-    
-    # Additional stats
     best_score: float = 0.0
-    backtrack_count: int = 0  # For Crescendo
-    
-    def to_dict(self) -> Dict[str, Any]:
-        d = asdict(self)
-        if d.get('started_at'):
-            d['started_at'] = d['started_at'].isoformat() if isinstance(d['started_at'], datetime) else d['started_at']
-        if d.get('completed_at'):
-            d['completed_at'] = d['completed_at'].isoformat() if isinstance(d['completed_at'], datetime) else d['completed_at']
-        return d
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RTAttackExecution":
-        return cls(**{k: v for k, v in data.items() if k != '_id'})
+    backtrack_count: int = 0
 
 
- 
-#  rt_vulnerability_execution - Vulnerability Check Tracking
- 
-
+# vulnerability execution tracking
 @dataclass
-class RTVulnerabilityExecution:
-    """Vulnerability execution status - for real-time progress tracking."""
+class RTVulnerabilityExecution(SerializableMixin):
     run_id: str
     vulnerability_profile_id: int
     vulnerability_name: str
@@ -175,15 +139,3 @@ class RTVulnerabilityExecution:
     findings_count: int = 0
     highest_severity: str = VulnerabilitySeverity.NONE.value
     last_error: Optional[str] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
-        d = asdict(self)
-        if d.get('started_at'):
-            d['started_at'] = d['started_at'].isoformat() if isinstance(d['started_at'], datetime) else d['started_at']
-        if d.get('completed_at'):
-            d['completed_at'] = d['completed_at'].isoformat() if isinstance(d['completed_at'], datetime) else d['completed_at']
-        return d
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RTVulnerabilityExecution":
-        return cls(**{k: v for k, v in data.items() if k != '_id'})
