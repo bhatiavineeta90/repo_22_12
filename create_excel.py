@@ -5,6 +5,9 @@ data = [
     ["Core Framework", "High-Level", "Red-Teaming Orchestration Engine", "Establish the primary execution loop to manage simulation lifecycles and metric aggregation.", "Lead Architect", "Critical", "Implemented", "Complex", 
      "1. Design internal state machine for multi-turn sessions", "2. Implement multi-modal result merging logic", "3. Develop standardized logging interface for attack runners", "4. Optimize runner initialization for parallel execution"],
     
+    ["Core Framework", "Low-Level", "MongoDB Database Architecture", "Design and implement a scalable document storage system for red-teaming runs, results, and profiles.", "Database Engineer", "Critical", "Implemented", "Medium",
+     "1. Design and document document schema (Collections for Runs, Results, and Profiles)", "2. Setup MongoDB environment (Atlas/Local) and configure connection strings", "3. Implement StorageHelper and MongoDBService classes for CRUD operations", "4. Develop data migration scripts and validation logic for schema consistency"],
+
     # 5 Attacks
     ["Security Testing", "Low-Level", "Linear Jailbreaking Strategy", "Implement iterative intensity scaling to identify threshold-based security bypasses.", "Vineeta", "High", "Implemented", "Medium",
      "1. Configure jailbreak scoring threshold parameters", "2. Develop turn-based prompt mutation logic", "3. Integrate Deepteam evaluation metrics", "4. Validate against baseline safety filters"],
