@@ -1,0 +1,6 @@
+Slno	Component	Task	Sub-Task	Owner	Status		Remarks
+1	Attack	Bad_Likert_Judge	1: Using Deepteam Libery	Vineeta	Pending	 		 	 
+ 	2: Changes in deeepteam libery if required	 	 	 
+ 	3. Convert code Notebook and test	 	 	 
+ 	4: Review+integration	 	 	 
+ 	Cresendo	1: Using Deepteam Libery	Vineeta	Pending	 			
